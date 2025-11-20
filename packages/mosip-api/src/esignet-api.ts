@@ -211,5 +211,8 @@ export const fetchUserInfo = async (accessToken: string) => {
         JSON.stringify(response),
     );
   }
-  return pickUserInfo(decodedResponse);
+  const pickedUserInfo = await pickUserInfo(decodedResponse);
+  console.log("Picked User Info :", JSON.stringify(pickedUserInfo));
+
+  return pickedUserInfo;
 };

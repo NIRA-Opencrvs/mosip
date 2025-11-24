@@ -307,8 +307,8 @@ export const verifyNid = async ({
   });
 
   const response = await authenticator.auth({
-    individualId: nid,
-    individualIdType: "UIN",
+    individualId: nid.toLowerCase() + "@nin",
+    individualIdType: "HANDLE",
     demographicData: {
       dob,
       name,

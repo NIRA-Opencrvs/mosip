@@ -163,7 +163,7 @@ const searchLocationFromFHIR = (name: string) =>
   );
 
 function formatDate(dateString: string, formatStr = "PP") {
-  const date = parse(dateString, "yyyy/MM/dd", new Date());
+  const date = parse(dateString, "dd/MM/yyyy", new Date());
   if (!isValid(date)) {
     return "";
   }

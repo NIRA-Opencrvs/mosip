@@ -70,6 +70,8 @@ type OIDPUserInfo = {
   family_name?: string;
   middle_name?: string;
   nickname?: string;
+  nid:string;
+  idType:string,
   preferred_username?: string;
   profile?: string;
   picture?: string;
@@ -109,6 +111,8 @@ app.get("/oidc/userinfo", {
       family_name: identity.familyName,
       middle_name: identity.middleName,
       nickname: "",
+      idType:"NATIONAL_ID",
+      nid:nid,
       preferred_username: "",
       profile: "",
       picture: "",

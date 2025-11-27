@@ -26,7 +26,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
     PRIVATE_KEY,
   );
 
-  const identity = identities.find(({ nid }) => nid + "@nin" === individualId);
+  const identity = identities.find(({ nid }) => `${nid}@nin` === individualId);
 
   if (!identity) {
     return reply.status(200).send({

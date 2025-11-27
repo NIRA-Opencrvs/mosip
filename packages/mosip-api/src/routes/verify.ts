@@ -2,6 +2,12 @@ import { DateValue, NameFieldValue, TextValue } from "@opencrvs/toolkit/events";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { verifyNid } from "../mosip-api";
 import { z } from "zod";
+import { isValid, format, Locale, parse } from "date-fns";
+import { enGB } from "date-fns/locale/en-GB";
+import { fr } from "date-fns/locale/fr";
+import { env } from "../constants";
+
+export const locales: Record<string, Locale> = { en: enGB, fr };
 
 export const VerifySchema = z.object({
   nid: TextValue,
@@ -24,7 +30,7 @@ export const verifyHandler = async (
     response: { authStatus },
   } = await verifyNid({
     nid: request.body.nid,
-    dob: request.body.dob.replaceAll("-", "/"),
+    dob: formatDate(request.body.dob, "dd/MM/yyyy"),
     name: [
       {
         language: "eng",
@@ -43,4 +49,14 @@ export const verifyHandler = async (
   }
 
   return reply.code(200).send(authStatus ? "verified" : "failed");
+};
+
+function formatDate(dateString: string, formatStr = "dd/MM/yyyy") {
+  const date = parse(dateString, "yyyy-MM-dd", new Date());
+  if (!isValid(date)) {
+    return "";
+  }
+  return format(date, formatStr, {
+    locale: locales[env.LOCALE],
+  });
 };

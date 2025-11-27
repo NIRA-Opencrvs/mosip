@@ -15,7 +15,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
   } = request.body as {
     transactionID: string;
     individualId: string;
-    individualIdType: "UIN" | "VID";
+    individualIdType: "UIN" | "VID" | "HANDLE";
     request: string;
     requestSessionKey: string;
   };
@@ -26,7 +26,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
     PRIVATE_KEY,
   );
 
-  const identity = identities.find(({ nid }) => nid === individualId);
+  const identity = identities.find(({ nid }) => nid + "@nin" === individualId);
 
   if (!identity) {
     return reply.status(200).send({
@@ -51,7 +51,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
 
   if (
     authParams.demographics.name[0].value.toLocaleLowerCase() !==
-    `${identity.firstName} ${identity.familyName}`.toLocaleLowerCase()
+    `${identity.familyName}`.toLocaleLowerCase()
   ) {
     return {
       transactionID,

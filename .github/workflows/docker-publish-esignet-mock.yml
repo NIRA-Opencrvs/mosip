@@ -6,11 +6,12 @@ on:
   push:
     branches:
       - main
+      - tf_nira_dev
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: opencrvs/esignet-mock
+  REGISTRY: docker.io
+  IMAGE_NAME: technoforte2023/esignet-mock
 
 jobs:
   build-and-push-image:
@@ -24,6 +25,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: technoforte2023
+          password: dckr_pat_wImaKcADEeu8nuCtG4eCrgS5MC0
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3

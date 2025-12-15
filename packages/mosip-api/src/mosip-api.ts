@@ -98,7 +98,7 @@ export const postBirthRecord = async ({
         offlineMode: false,
         process: "CRVS_NEW",
         source: "OPENCRVS",
-        schemaVersion: "0.100",
+        schemaVersion: "8.400",
         fields: requestFields,
         metaInfo: metaInfo,
         audits: Array.of(audit),

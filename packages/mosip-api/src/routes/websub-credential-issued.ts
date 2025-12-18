@@ -65,7 +65,7 @@ export const credentialIssuedHandler = async (
           eventId,
           actionId,
           registrationNumber,
-          nationalId: verifiableCredential.credentialSubject.VID,
+          nationalId: verifiableCredential.credentialSubject.NIN,
         },
         { token },
       );

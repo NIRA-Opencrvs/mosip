@@ -3,8 +3,8 @@ import { z } from "zod";
 import canonicalize from "canonicalize";
 
 const BirthSubject = z.object({
-  birthCertificateNumber: z.string(),
-  VID: z.string(),
+  // birthCertificateNumber: z.string(),
+  NIN: z.string(),
   id: z.string().url(),
   vcVer: z.literal("VC-V1"),
 });
@@ -40,7 +40,7 @@ export const MOSIPVerifiableCredential = z.object({
 export const isBirthSubject = (
   subject: z.infer<typeof BirthSubject> | z.infer<typeof DeathSubject>,
 ): subject is z.infer<typeof BirthSubject> => {
-  return "birthCertificateNumber" in subject && "VID" in subject;
+  return "NIN" in subject;
 };
 
 export const verifyCredentialOrThrow = async (

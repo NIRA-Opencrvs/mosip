@@ -101,19 +101,19 @@ export const packetManagerCreateHandler: RouteHandlerMethod = async (
 
   if (isCrvsNewRequest(payload)) {
     const id = payload.request.id;
-    const VID = await createNid();
+    const NIN = await createNid();
     const birthCertificateNumber =
       payload.request.fields.birthCertificateNumber;
 
     console.log(
-      `${JSON.stringify({ id, birthCertificateNumber }, null, 4)}, ..."${VID}" created.`,
+      `${JSON.stringify({ id, birthCertificateNumber }, null, 4)}, ..."${NIN}" created.`,
     );
 
-    await sendEmail(`NID created for request id ${id}`, `NID: ${VID}`);
+    await sendEmail(`NID created for request id ${id}`, `NID: ${NIN}`);
 
     sendVerifiableCredential(id, {
-      birthCertificateNumber,
-      VID,
+      // birthCertificateNumber,
+      NIN,
       id: `http://credential.idrepo/credentials/${id}`,
       vcVer: "VC-V1",
     }).catch((e) => {

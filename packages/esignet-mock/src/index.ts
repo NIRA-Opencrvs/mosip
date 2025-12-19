@@ -199,7 +199,8 @@ app.get("/authorize", {
       .replace(/{{redirect_uri}}/g, request.query.redirect_uri);
 
     /** @see VALID_REDIRECT_URIS for explanation */
-    VALID_REDIRECT_URIS.push(request.query.redirect_uri);
+
+    VALID_REDIRECT_URIS.push(request.query.redirect_uri.split("?")[0]);
 
     return reply.type("text/html").send(modifiedHtml);
   },

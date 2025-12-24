@@ -49,6 +49,8 @@ export const confirmRegistration = (
     actionId,
     registrationNumber,
     declaration: {
+      "child.ninAvailable" : "YES",
+      "child.idType" : "NATIONAL_ID",
       "child.nid": nationalId,
     },
   });

@@ -37,10 +37,10 @@ type OIDPUserInfo = {
   sub: string;
   name?: string;
   given_name?: string;
-  family_name?: string;
-  middle_name?: string;
+  surname?: string;
+  other_names?: string;
   nickname?: string;
-  nid:string;
+  nin?: string;
   preferred_username?: string;
   profile?: string;
   picture?: string;
@@ -177,8 +177,8 @@ const pickUserInfo = async (userInfo: OIDPUserInfo) => {
   return {
     name: {
       firstname: userInfo.given_name,
-      middlename: userInfo.middle_name,
-      surname: userInfo.family_name,
+      middlename: userInfo.other_names,
+      surname: userInfo.surname,
     },
     gender: userInfo?.gender?.toLowerCase(),
     ...(userInfo.birthdate && {
@@ -187,7 +187,7 @@ const pickUserInfo = async (userInfo: OIDPUserInfo) => {
     }),
     verificationStatus: "authenticated",
     idType: "NATIONAL_ID",
-    nid: userInfo.nid,
+    nid: userInfo.nin,
   };
 };
 

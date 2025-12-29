@@ -67,10 +67,10 @@ type OIDPUserInfo = {
   sub: string;
   name?: string;
   given_name?: string;
-  family_name?: string;
-  middle_name?: string;
+  surname?: string;
+  other_names?: string;
   nickname?: string;
-  nid:string;
+  nin:string;
   idType:string,
   preferred_username?: string;
   profile?: string;
@@ -124,11 +124,11 @@ app.get("/oidc/userinfo", {
       sub: "405710304278395",
       name: `${identity.firstName} ${identity.familyName}`,
       given_name: identity.firstName,
-      family_name: identity.familyName,
-      middle_name: identity.middleName,
+      surname: identity.familyName,
+      other_names: identity.middleName,
       nickname: "",
       idType:"NATIONAL_ID",
-      nid:nid,
+      nin:nid,
       preferred_username: "",
       profile: "",
       picture: "",

@@ -34,7 +34,7 @@ export const verifyHandler = async (
     name: [
       {
         language: "eng",
-        value: `${request.body.name.surname}`,
+        value: `${request.body.name.surname} ${request.body.name.firstname} ${request.body.name.middlename}`,
       },
     ],
     gender: request.body.gender

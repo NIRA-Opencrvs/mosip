@@ -51,7 +51,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
 
   if (
     authParams.demographics.name[0].value.toLocaleLowerCase() !==
-    `${identity.familyName}`.toLocaleLowerCase()
+    `${identity.familyName} ${identity.firstName} ${identity.middleName}`.toLocaleLowerCase()
   ) {
     return {
       transactionID,

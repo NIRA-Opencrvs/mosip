@@ -1,4 +1,6 @@
 import { env } from "./constants";
+import { readFileSync } from "fs";
+import path from "path";
 import MOSIPAuthenticator from "@mosip/ida-auth-sdk";
 import { schemaJson } from "./types/idSchemaJson";
 import {
@@ -6,6 +8,12 @@ import {
   DeathRequestFields,
   MosipInteropPayload,
 } from "@opencrvs/mosip/api";
+import {
+  isDynamicField,
+  findCodeForFieldValue,
+  pickFirstString,
+  isLangArrayString,
+} from "./dynamic-fields";
 
 export class MOSIPError extends Error {
   constructor(message: string) {
@@ -43,8 +51,7 @@ export async function getMosipAuthToken(authType: AuthType) {
 
   if (!response.ok) {
     throw new MOSIPError(
-      `Failed getting MOSIP auth token. Response: ${
-        response.status
+      `Failed getting MOSIP auth token. Response: ${response.status
       }, response: ${await response.text()}`,
     );
   }
@@ -54,8 +61,7 @@ export async function getMosipAuthToken(authType: AuthType) {
 
   if (!cookie) {
     throw new MOSIPError(
-      `Failed getting MOSIP auth token. Response: ${
-        response.status
+      `Failed getting MOSIP auth token. Response: ${response.status
       }, response: ${await response.text()}`,
     );
   }
@@ -69,6 +75,14 @@ export async function getMosipAuthToken(authType: AuthType) {
   // Extract the token by splitting on '='
   const token = authorizationPart.split("=")[1];
   return token;
+}
+function getAgeInMonths(dateOfBirth: string): number {
+  const dob = new Date(dateOfBirth);
+  const now = new Date();
+  const years = now.getFullYear() - dob.getFullYear();
+  const months = now.getMonth() - dob.getMonth();
+  const totalMonths = years * 12 + months;
+  return totalMonths;
 }
 
 export const postBirthRecord = async ({
@@ -112,66 +126,212 @@ export const postBirthRecord = async ({
   const authToken = await getMosipAuthToken("PACKET");
 
   // packet manager: create packet
-  const createPacketResponse = await fetch(env.MOSIP_CREATE_PACKET_URL, {
-    method: "PUT",
-    body: requestBody,
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: `Authorization=${authToken};`,
-    },
-  });
 
-  if (!createPacketResponse.ok) {
-    throw new Error(
-      `Failed sending record to MOSIP, response: ${await createPacketResponse.text()}`,
-    );
-  }
+  const dob = typeof requestFields.dateOfBirth === "string"
+    ? requestFields.dateOfBirth
+    : String(requestFields.dateOfBirth);
 
-  await createPacketResponse.json();
+  const ageInMonths = getAgeInMonths(dob);
+  if (ageInMonths < 9) {
 
-  // packet manager: process packet API.
-  const processPacketRequestBody = JSON.stringify(
-    {
-      id: "mosip.registration.processor.workflow.instance",
-      requesttime: new Date().toISOString(),
-      version: "v1",
-      request: {
-        registrationId: event.id,
-        process: "CRVS_NEW",
-        source: "OPENCRVS",
-        additionalInfoReqId: "",
-        notificationInfo: {
-          name: notification.recipientFullName,
-          phone: notification.recipientPhone || "",
-          email: notification.recipientEmail || "",
+    const createPacketResponse = await fetch(env.MOSIP_CREATE_PACKET_URL, {
+      method: "PUT",
+      body: requestBody,
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `Authorization=${authToken};`,
+      },
+    });
+
+    if (!createPacketResponse.ok) {
+      throw new Error(
+        `Failed sending record to MOSIP, response: ${await createPacketResponse.text()}`,
+      );
+    }
+
+    await createPacketResponse.json();
+
+    // packet manager: process packet API.
+    const processPacketRequestBody = JSON.stringify(
+      {
+        id: "mosip.registration.processor.workflow.instance",
+        requesttime: new Date().toISOString(),
+        version: "v1",
+        request: {
+          registrationId: event.id,
+          process: "CRVS_NEW",
+          source: "OPENCRVS",
+          additionalInfoReqId: "",
+          notificationInfo: {
+            name: notification.recipientFullName,
+            phone: notification.recipientPhone || "",
+            email: notification.recipientEmail || "",
+          },
         },
       },
-    },
-    null,
-    2,
-  );
-
-  const processPacketResponse = await fetch(env.MOSIP_PROCESS_PACKET_URL, {
-    method: "POST",
-    body: processPacketRequestBody,
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: `Authorization=${authToken};`,
-    },
-  });
-
-  if (!processPacketResponse.ok) {
-    throw new Error(
-      `Failed sending record to MOSIP, response: ${await processPacketResponse.text()}`,
+      null,
+      2,
     );
-  }
 
-  const processPacketResponseJson = await processPacketResponse.json();
+    const processPacketResponse = await fetch(env.MOSIP_PROCESS_PACKET_URL, {
+      method: "POST",
+      body: processPacketRequestBody,
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `Authorization=${authToken};`,
+      },
+    });
 
-  if (processPacketResponseJson?.errors?.length > 0) {
-    throw new Error(
-      `Error in processing packet, response: ${await processPacketResponseJson?.errors[0]?.message}`,
-    );
+    if (!processPacketResponse.ok) {
+      throw new Error(
+        `Failed sending record to MOSIP, response: ${await processPacketResponse.text()}`,
+      );
+    }
+
+    const processPacketResponseJson = await processPacketResponse.json();
+
+    if (processPacketResponseJson?.errors?.length > 0) {
+      throw new Error(
+        `Error in processing packet, response: ${await processPacketResponseJson?.errors[0]?.message}`,
+      );
+    }
+  } else {
+
+    const identity: Record<string, any> = {
+      IDSchemaVersion: 8.4,
+      userService: 'NEW',
+    };
+
+    console.log("\n=== Processing requestFields ===");
+    for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
+      if (fieldValue == null || fieldValue === '') continue;
+
+     
+      if (fieldName === 'birthCertificateNumber') continue;
+
+      const rawValue = String(fieldValue).trim();
+      const wasLangArray = isLangArrayString(fieldValue);
+
+      
+      const extractedValue = pickFirstString(fieldValue);
+      if (!extractedValue) continue;
+
+      // console.log(`[Processing] ${fieldName}: raw="${rawValue.substring(0, 50)}..." wasLangArray=${wasLangArray}`);
+
+    
+      let finalValue: string = extractedValue;
+      if (isDynamicField(fieldName)) {
+        const code = findCodeForFieldValue(fieldName, extractedValue);
+        console.log(`[Dynamic Field] ${fieldName}: "${extractedValue}" -> "${code}"`);
+        if (code) {
+          finalValue = code;
+        }
+      }
+
+      if (wasLangArray) {
+        identity[fieldName] = [{ language: 'eng', value: finalValue }];
+      } else {
+        identity[fieldName] = finalValue;
+      }
+    }
+
+    const springPayload = {
+      id: "mosip.pre-registration.demographic.create",
+      version: "1.0",
+      requesttime: new Date().toISOString(),
+      request: {
+        langCode: "eng",
+        demographicDetails: {
+          identity,
+        },
+        requiredFields: ["givenName", "surname", "dateOfBirth", "gender"]
+      }
+    };
+
+    // console.log("request fields are :", requestFields);
+    const authCookie =
+      `Authorization=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImF1ZCI6IlwiYWNjb3VudFwiOyIsInVzZXJfbmFtZSI6InRlc3RAZ21haWwuY29tIiwic2NvcGUiOiJQUkUtUkVHSVNUUkFUSU9OOyIsInJvbGVzIjoiSU5ESVZJRFVBTCIsImlzcyI6Ii9wcmVyZWdpc3RyYXRpb24vdjEvbG9naW4vdmFsaWRhdGVPdHAiLCJleHAiOjE3Njc3NjQzNjMsInVzZXJJZCI6InRlc3RAZ21haWwuY29tIiwiaWF0IjoxNzY3NzYwNzYzfQ.mSirYYh6QJK7OdvW7KTfvgyrIUSAJph0LG_n1AQiLdw;`
+
+    try {
+      console.log("Sending pre-registration payload to Spring:", JSON.stringify(springPayload, null, 2));
+    } catch (e) {
+      console.log("Sending pre-registration payload (could not stringify)");
+    }
+
+    const SPRING_SERVICE_URL = "http://localhost:9091/preregistration/v1/applications/prereg";
+
+    const response = await fetch(SPRING_SERVICE_URL, {
+      method: "POST",
+      body: JSON.stringify(springPayload),
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: authCookie
+      }
+    });
+
+    const rawResponseText = await response.text();
+    let createData: any = rawResponseText;
+    try {
+      createData = rawResponseText ? JSON.parse(rawResponseText) : rawResponseText;
+    } catch (e) {
+    }
+
+    console.log("create API response:", createData);
+    const preRegId = createData?.response?.preRegistrationId;
+
+    const statusCode = "Pending_Appointment";
+
+    const statusUrl =
+      `http://localhost:9091/preregistration/v1/applications/prereg/status/${preRegId}?statusCode=${encodeURIComponent(statusCode)}`;
+
+    const statusRes = await fetch(statusUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: authCookie
+      }
+    });
+
+    const statusResult = await statusRes.json();
+
+    console.log("Update status:", statusResult);
+
+    const appointmentUrl = "http://localhost:9091/preregistration/v1/applications/appointment";
+
+    const appointmentBody = {
+      id: "mosip.pre-registration.booking.book",
+      request: {
+        bookingRequest: [
+          {
+            preRegistrationId: preRegId,
+            registration_center_id: "10045",
+            appointment_date: "2028-10-01",
+            time_slot_from: "09:30:00",
+            time_slot_to: "09:45:00",
+          },
+        ],
+      },
+      version: "1.0",
+      requesttime: new Date().toISOString(),
+    };
+
+    const appointmentRes = await fetch(appointmentUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: authCookie,
+      },
+      body: JSON.stringify(appointmentBody),
+    });
+
+    // if (!appointmentRes.ok) {
+    //   throw new Error(
+    //     `Failed creating appointment: ${appointmentRes.status} ${await appointmentRes.text()}`,
+    //   );
+    // }
+
+    const appointmentJson = await appointmentRes.json();
+    console.log(JSON.stringify(appointmentJson, null, 2));
   }
 };
 

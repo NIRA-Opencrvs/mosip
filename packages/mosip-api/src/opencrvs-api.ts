@@ -43,6 +43,8 @@ export const confirmRegistration = (
   const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
   const client = createClient(url, `Bearer ${token}`);
 
+  const isAlienId = !!nationalId && nationalId?.startsWith("A");
+
   return client.event.actions.register.accept.mutate({
     transactionId: `mosip-interop-${crypto.randomUUID()}`,
     eventId,
@@ -50,8 +52,15 @@ export const confirmRegistration = (
     registrationNumber,
     declaration: {
       "child.ninAvailable" : "YES",
-      "child.idType" : "NATIONAL_ID",
-      "child.nid": nationalId,
+      ...(isAlienId
+      ? {
+          "child.idType": "ALIEN_ID",
+          "child.alienID": nationalId,
+        }
+      : {
+          "child.idType": "NATIONAL_ID",
+          "child.nid": nationalId,
+        }),
     },
   });
 };

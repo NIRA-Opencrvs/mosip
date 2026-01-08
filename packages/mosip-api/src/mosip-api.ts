@@ -76,6 +76,99 @@ export async function getMosipAuthToken(authType: AuthType) {
   const token = authorizationPart.split("=")[1];
   return token;
 }
+
+export async function getPreRegistrationAuthToken(): Promise<string> {
+  const baseUrl = "http://localhost:9091";
+  const userId = "kumar@gmail.com";
+  const otp = "111111";
+
+  const sendOtpResponse = await fetch(
+    `${baseUrl}/preregistration/v1/login/sendOtpWithCaptcha`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: "mosip.pre-registration.login.sendotp",
+        request: {
+          langCode: "eng",
+          userId: userId,
+        },
+        version: "1.0",
+        requesttime: new Date().toISOString(),
+      }),
+    }
+  );
+
+  if (!sendOtpResponse.ok) {
+    throw new MOSIPError(
+      `Failed sending OTP for pre-registration. Response: ${sendOtpResponse.status}, response: ${await sendOtpResponse.text()}`
+    );
+  }
+
+  const sendOtpResult = await sendOtpResponse.json();
+  // console.log("Send OTP response:", JSON.stringify(sendOtpResult, null, 2));
+
+  const validateOtpResponse = await fetch(
+    `${baseUrl}/preregistration/v1/login/validateOtp`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: "mosip.pre-registration.login.useridotp",
+        request: {
+          otp: otp,
+          userId: userId,
+        },
+        version: "1.0",
+        requesttime: new Date().toISOString(),
+      }),
+    }
+  );
+
+  if (!validateOtpResponse.ok) {
+    throw new MOSIPError(
+      `Failed validating OTP for pre-registration. Response: ${validateOtpResponse.status}, response: ${await validateOtpResponse.text()}`
+    );
+  }
+
+  const validateOtpResult = await validateOtpResponse.json();
+  console.log("Validate OTP response:", JSON.stringify(validateOtpResult, null, 2));
+
+  if (validateOtpResult.errors && validateOtpResult.errors.length > 0) {
+    throw new MOSIPError(
+      `OTP validation failed: ${validateOtpResult.errors[0].message}`
+    );
+  }
+
+  const cookie: string | null = validateOtpResponse.headers.get("Set-Cookie");
+
+  if (!cookie) {
+    throw new MOSIPError(
+      `Failed getting Authorization token from cookies. Response: ${validateOtpResponse.status}`
+    );
+  }
+
+
+  const cookieParts = cookie.split(";");
+  const authorizationPart = cookieParts.find((part) =>
+    part.trim().startsWith("Authorization=")
+  );
+
+  if (!authorizationPart) {
+    throw new MOSIPError(
+      `Authorization token not found in cookies. Cookie: ${cookie}`
+    );
+  }
+
+  const token = authorizationPart.split("=")[1];
+  console.log("Successfully obtained pre-registration auth token");
+  
+  return token;
+}
 function getAgeInMonths(dateOfBirth: string): number {
   const dob = new Date(dateOfBirth);
   const now = new Date();
@@ -248,10 +341,9 @@ export const postBirthRecord = async ({
       }
     };
 
-    // console.log("request fields are :", requestFields);
-    const authCookie =
-      `Authorization=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGdtYWlsLmNvbSIsImF1ZCI6IlwiYWNjb3VudFwiOyIsInVzZXJfbmFtZSI6InRlc3RAZ21haWwuY29tIiwic2NvcGUiOiJQUkUtUkVHSVNUUkFUSU9OOyIsInJvbGVzIjoiSU5ESVZJRFVBTCIsImlzcyI6Ii9wcmVyZWdpc3RyYXRpb24vdjEvbG9naW4vdmFsaWRhdGVPdHAiLCJleHAiOjE3Njc3NjQzNjMsInVzZXJJZCI6InRlc3RAZ21haWwuY29tIiwiaWF0IjoxNzY3NzYwNzYzfQ.mSirYYh6QJK7OdvW7KTfvgyrIUSAJph0LG_n1AQiLdw;`
-
+    const preRegAuthToken = await getPreRegistrationAuthToken();
+    const authCookie = `Authorization=${preRegAuthToken};`;
+    
     try {
       console.log("Sending pre-registration payload to Spring:", JSON.stringify(springPayload, null, 2));
     } catch (e) {

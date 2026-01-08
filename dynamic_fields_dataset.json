@@ -83,6 +83,10 @@
                 "value": "By Registration"
             },
             {
+                "code": "CRVS",
+                "value": "OpenCRVS"
+            },
+            {
                 "code": "NAT",
                 "value": "By Naturalization"
             },

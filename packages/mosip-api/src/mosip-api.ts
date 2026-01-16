@@ -1,6 +1,9 @@
 import { env } from "./constants";
-import { readFileSync } from "fs";
-import path from "path";
+import { readFileSync, existsSync } from "fs";
+import * as fs from "fs";
+import * as path from "path";
+import { promisify } from "util";
+import { exec } from "child_process";
 import MOSIPAuthenticator from "@mosip/ida-auth-sdk";
 import { schemaJson } from "./types/idSchemaJson";
 import {
@@ -13,6 +16,8 @@ import {
   findCodeForFieldValue,
   pickFirstString,
   isLangArrayString,
+  processLocationHierarchy,
+  processMotherLocationHierarchy,
 } from "./dynamic-fields";
 
 export class MOSIPError extends Error {
@@ -23,6 +28,62 @@ export class MOSIPError extends Error {
 }
 
 export type AuthType = "PACKET" | "WEBSUB";
+
+const execAsync = promisify(exec);
+
+// MinIO configuration
+const MINIO_CONFIG = {
+  alias: 'opencrvs-minio',
+  host: 'localhost:3535',
+  username: 'minioadmin',
+  password: 'minioadmin'
+};
+
+// Function to download document from MinIO (in-memory only)
+async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer | null> {
+  try {
+    // Remove leading slash if present and convert to MinIO object path
+    const minioObjectPath = documentPath.startsWith('/') ? documentPath.slice(1) : documentPath;
+    
+    // Create temporary directory for download
+    const tempDir = '/tmp/opencrvs-docs';
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    // Generate unique filename for temporary download
+    const fileName = path.basename(documentPath);
+    const timestamp = Date.now();
+    const tempFilePath = path.join(tempDir, `${timestamp}_${fileName}`);
+    
+    console.log(`Fetching document from MinIO: ${minioObjectPath}`);
+    
+    // Configure MinIO alias (do this each time to ensure it's set up)
+    await execAsync(`mc alias set ${MINIO_CONFIG.alias} http://${MINIO_CONFIG.host} ${MINIO_CONFIG.username} ${MINIO_CONFIG.password}`);
+    
+    // Download the file to temp location
+    const downloadCommand = `mc cp "${MINIO_CONFIG.alias}/${minioObjectPath}" "${tempFilePath}"`;
+    await execAsync(downloadCommand);
+    
+    // Check if file was downloaded successfully
+    if (fs.existsSync(tempFilePath)) {
+      // Read file as buffer
+      const fileBuffer = fs.readFileSync(tempFilePath);
+      
+      // Clean up temporary file immediately
+      fs.unlinkSync(tempFilePath);
+      
+      console.log(`Successfully fetched document from MinIO: ${documentPath} (${fileBuffer.length} bytes)`);
+      return fileBuffer;
+    } else {
+      console.error(` Failed to download document from MinIO: ${documentPath}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(` Error downloading document from MinIO ${documentPath}:`, error);
+    return null;
+  }
+}
 
 export async function getMosipAuthToken(authType: AuthType) {
   const response = await fetch(env.MOSIP_AUTH_URL, {
@@ -78,8 +139,8 @@ export async function getMosipAuthToken(authType: AuthType) {
 }
 
 export async function getPreRegistrationAuthToken(): Promise<string> {
-  const baseUrl = "http://localhost:9091";
-  const userId = "kumar@gmail.com";
+  const baseUrl = "https://prereg.niradev1.idencode.link";
+  const userId = "jai@gmail.com";
   const otp = "111111";
 
   const sendOtpResponse = await fetch(
@@ -178,6 +239,168 @@ function getAgeInMonths(dateOfBirth: string): number {
   return totalMonths;
 }
 
+interface DocumentField {
+  type: string;
+  path: string;
+  originalName: string;
+}
+
+// Document category and type mapping based on MOSIP requirements
+const getDocumentMapping = (documentType: string): { docCatCode: string; docTypCode: string } => {
+  const typeMapping: Record<string, { docCatCode: string; docTypCode: string }> = {
+    // Identity Documents
+    'PASSPORT': { docCatCode: 'POPASS', docTypCode: 'DOC001' },
+    'NATIONAL_ID': { docCatCode: 'POI', docTypCode: 'DOC002' },
+    'ALIEN_ID': { docCatCode: 'POI', docTypCode: 'DOC003' },
+    'REFUGEE_ID': { docCatCode: 'POI', docTypCode: 'DOC004' },
+    
+    // Birth Documents
+    'CERTIFICATE_OF_BIRTH': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'BIRTH_CERTIFICATE': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'LC_RECOMMENDATION_LETTER': { docCatCode: 'POB', docTypCode: 'DOC029' },
+    'MISSION_LETTER': { docCatCode: 'POB', docTypCode: 'DOC030' },
+    
+    // Legal Documents
+    'POLICE_REPORT': { docCatCode: 'POL', docTypCode: 'DOC031' },
+    'STATUTORY_DECLARATION': { docCatCode: 'POL', docTypCode: 'DOC032' },
+    'COURT_ORDER': { docCatCode: 'POL', docTypCode: 'DOC033' },
+    'AFFIDAVIT': { docCatCode: 'POL', docTypCode: 'DOC034' },
+    
+    // Citizenship Documents
+    'CITIZENSHIP_CERTIFICATE': { docCatCode: 'POC', docTypCode: 'DOC035' },
+    'NATURALIZATION_CERTIFICATE': { docCatCode: 'POC', docTypCode: 'DOC036' },
+    
+    // General/Other Documents
+    'OTHER': { docCatCode: 'POO', docTypCode: 'DOC999' }
+  };
+  
+  return typeMapping[documentType] || { docCatCode: 'POO', docTypCode: 'DOC999' };
+};
+
+async function uploadDocumentToMosip(
+  preRegId: string,
+  documentField: DocumentField,
+  authToken: string
+): Promise<void> {
+  const PREREG_BASE_URL = "https://prereg.niradev1.idencode.link";
+  
+  // Extract document type from the documentField.type
+  let docType = documentField.type;
+  if (docType.startsWith('[{') && docType.endsWith('}]')) {
+    try {
+      const parsed = JSON.parse(docType);
+      docType = Array.isArray(parsed) && parsed.length > 0 ? parsed[0].value : docType;
+    } catch (e) {
+      // If parsing fails, use the original type
+    }
+  }
+  
+  const { docCatCode, docTypCode } = getDocumentMapping(docType);
+  
+  const documentRequest = {
+    id: "mosip.pre-registration.document.upload",
+    request: {
+      docCatCode,
+      docTypCode,
+      langCode: "eng",
+      refNumber: ""
+    },
+    metadata: {},
+    version: "1.0",
+    requesttime: new Date().toISOString()
+  };
+
+  try {
+    let fileBuffer: Buffer;
+    
+    // Check if the path is an OpenCRVS internal path that needs to be fetched from MinIO
+    if (documentField.path.startsWith('/ocrvs/')) {
+      console.log(` Fetching document from MinIO: ${documentField.path}`);
+      console.log(`Document: ${documentField.originalName} (Type: ${documentField.type})`);
+      
+      // Download from MinIO
+      const minioBuffer = await downloadDocumentFromMinIO(documentField.path);
+      
+      if (minioBuffer) {
+        fileBuffer = minioBuffer;
+        console.log(` Document fetched successfully from MinIO: ${documentField.originalName} (${fileBuffer.length} bytes)`);
+        
+        // Validate file signature
+        const signature = fileBuffer.slice(0, 8).toString('hex');
+        console.log(`File signature: ${signature}`);
+        
+        // Validate common file types
+        if (signature.startsWith('89504e47')) {
+          console.log(`Valid PNG file detected`);
+        } else if (signature.startsWith('ffd8ff')) {
+          console.log(` Valid JPEG file detected`);
+        } else if (signature.startsWith('25504446')) {
+          console.log(`Valid PDF file detected`);
+        } else {
+          console.log(` Unknown file signature, proceeding anyway`);
+        }
+      } else {
+        console.error(`MinIO download failed for: ${documentField.path}`);
+        throw new Error(`Failed to fetch document from MinIO: ${documentField.path}`);
+      }
+    } else {
+      // Handle local file system paths
+      if (!existsSync(documentField.path)) {
+        console.warn(`Document file not found: ${documentField.path}`);
+        return;
+      }
+      fileBuffer = readFileSync(documentField.path);
+    }
+    
+    // Create multipart form data manually
+    const boundary = '----formdata-' + Math.random().toString(36).substring(2, 15);
+    let formData = '';
+    
+    // Add document request field
+    formData += `--${boundary}\r\n`;
+    formData += `Content-Disposition: form-data; name="Document request"\r\n`;
+    formData += `Content-Type: application/json\r\n\r\n`;
+    formData += `${JSON.stringify(documentRequest)}\r\n`;
+    
+    // Add file field
+    formData += `--${boundary}\r\n`;
+    formData += `Content-Disposition: form-data; name="file"; filename="${documentField.originalName}"\r\n`;
+    formData += `Content-Type: application/octet-stream\r\n\r\n`;
+    
+    // Convert string parts to buffer and concatenate with file buffer
+    const formDataStart = Buffer.from(formData, 'utf8');
+    const formDataEnd = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+    const fullFormData = Buffer.concat([formDataStart, fileBuffer, formDataEnd]);
+
+    const uploadUrl = `${PREREG_BASE_URL}/preregistration/v1/documents/${preRegId}`;
+    
+    console.log(`Uploading document ${documentField.originalName} to ${uploadUrl}`);
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: fullFormData,
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': fullFormData.length.toString(),
+        Cookie: `Authorization=${authToken};`
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to upload document ${documentField.originalName}:`, response.status, errorText);
+      throw new Error(`Document upload failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`Successfully uploaded document ${documentField.originalName}:`, result);
+    
+  } catch (error) {
+    console.error(`Error uploading document ${documentField.originalName}:`, error);
+    throw error;
+  }
+}
+
 export const postBirthRecord = async ({
   event,
   requestFields,
@@ -223,6 +446,8 @@ export const postBirthRecord = async ({
   const dob = typeof requestFields.dateOfBirth === "string"
     ? requestFields.dateOfBirth
     : String(requestFields.dateOfBirth);
+
+  // console.log("payload from opencrvs : ", requestBody);
 
   const ageInMonths = getAgeInMonths(dob);
   if (ageInMonths < 9) {
@@ -295,12 +520,26 @@ export const postBirthRecord = async ({
       userService: 'NEW',
     };
 
-    console.log("\n=== Processing requestFields ===");
+    // Get auth token for API calls
+    const preRegAuthToken = await getPreRegistrationAuthToken();
+    
+    // Process hierarchical location lookup for father's and mother's residence
+    console.log("\\n=== Processing Location Hierarchies ===");
+    const fatherLocationCodes = await processLocationHierarchy(requestFields);
+    console.log("Father location codes resolved:", fatherLocationCodes);
+    
+    const motherLocationCodes = await processMotherLocationHierarchy(requestFields);
+    console.log("Mother location codes resolved:", motherLocationCodes);
+
+    console.log("\\n=== Processing requestFields ===");
     for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
       if (fieldValue == null || fieldValue === '') continue;
 
      
       if (fieldName === 'birthCertificateNumber') continue;
+
+      // Skip document-related fields from being included in the identity
+      if (fieldName.toLowerCase().includes('document')) continue;
 
       const rawValue = String(fieldValue).trim();
       const wasLangArray = isLangArrayString(fieldValue);
@@ -328,6 +567,53 @@ export const postBirthRecord = async ({
       }
     }
 
+    // Update identity with resolved location codes
+    console.log("\n=== Updating Location Codes in Identity ===");
+    
+    // Father location codes
+    if (fatherLocationCodes.districtCode) {
+      identity['fatherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: fatherLocationCodes.districtCode }];
+      console.log(`Updated father district code: ${fatherLocationCodes.districtCode}`);
+    }
+    if (fatherLocationCodes.countyCode) {
+      identity['fatherPlaceOfResidenceCounty'] = [{ language: 'eng', value: fatherLocationCodes.countyCode }];
+      console.log(`Updated father county code: ${fatherLocationCodes.countyCode}`);
+    }
+    if (fatherLocationCodes.subCountyCode) {
+      identity['fatherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: fatherLocationCodes.subCountyCode }];
+      console.log(`Updated father subcounty code: ${fatherLocationCodes.subCountyCode}`);
+    }
+    if (fatherLocationCodes.parishCode) {
+      identity['fatherPlaceOfResidenceParish'] = [{ language: 'eng', value: fatherLocationCodes.parishCode }];
+      console.log(`Updated father parish code: ${fatherLocationCodes.parishCode}`);
+    }
+    if (fatherLocationCodes.villageCode) {
+      identity['fatherPlaceOfResidenceVillage'] = [{ language: 'eng', value: fatherLocationCodes.villageCode }];
+      console.log(`Updated father village code: ${fatherLocationCodes.villageCode}`);
+    }
+    
+    // Mother location codes
+    if (motherLocationCodes.districtCode) {
+      identity['motherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: motherLocationCodes.districtCode }];
+      console.log(`Updated mother district code: ${motherLocationCodes.districtCode}`);
+    }
+    if (motherLocationCodes.countyCode) {
+      identity['motherPlaceOfResidenceCounty'] = [{ language: 'eng', value: motherLocationCodes.countyCode }];
+      console.log(`Updated mother county code: ${motherLocationCodes.countyCode}`);
+    }
+    if (motherLocationCodes.subCountyCode) {
+      identity['motherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: motherLocationCodes.subCountyCode }];
+      console.log(`Updated mother subcounty code: ${motherLocationCodes.subCountyCode}`);
+    }
+    if (motherLocationCodes.parishCode) {
+      identity['motherPlaceOfResidenceParish'] = [{ language: 'eng', value: motherLocationCodes.parishCode }];
+      console.log(`Updated mother parish code: ${motherLocationCodes.parishCode}`);
+    }
+    if (motherLocationCodes.villageCode) {
+      identity['motherPlaceOfResidenceVillage'] = [{ language: 'eng', value: motherLocationCodes.villageCode }];
+      console.log(`Updated mother village code: ${motherLocationCodes.villageCode}`);
+    }
+
     const springPayload = {
       id: "mosip.pre-registration.demographic.create",
       version: "1.0",
@@ -341,7 +627,6 @@ export const postBirthRecord = async ({
       }
     };
 
-    const preRegAuthToken = await getPreRegistrationAuthToken();
     const authCookie = `Authorization=${preRegAuthToken};`;
     
     try {
@@ -370,6 +655,12 @@ export const postBirthRecord = async ({
 
     console.log("create API response:", createData);
     const preRegId = createData?.response?.preRegistrationId;
+
+    if (!preRegId) {
+      throw new Error("Failed to get pre-registration ID from MOSIP response");
+    }
+
+    console.log("Pre-registration ID obtained:", preRegId);
 
     const statusCode = "Pending_Appointment";
 
@@ -424,6 +715,69 @@ export const postBirthRecord = async ({
 
     const appointmentJson = await appointmentRes.json();
     console.log(JSON.stringify(appointmentJson, null, 2));
+
+    // Extract and upload documents only if we have a valid preRegId
+    if (preRegId) {
+      console.log("\n=== Processing Document Uploads ===");
+      const documentFields: DocumentField[] = [];
+      
+      // Extract document fields from new nested documents structure
+      const documentsObject = requestFields.documents as any;
+      
+      if (documentsObject && typeof documentsObject === 'object') {
+        console.log("Found documents object in requestFields");
+        
+        // Iterate through all document entries in the documents object
+        for (const [documentKey, documentData] of Object.entries(documentsObject)) {
+          if (documentData && typeof documentData === 'object') {
+            const docData = documentData as any;
+            
+            // Extract document type, path, and original name
+            let docType = docData.documentType;
+            const docPath = docData.path;
+            const docOriginalName = docData.originalName;
+            
+            // Parse document type if it's in language array format
+            if (typeof docType === 'string' && docType.startsWith('[{') && docType.endsWith('}]')) {
+              try {
+                const parsed = JSON.parse(docType);
+                docType = Array.isArray(parsed) && parsed.length > 0 ? parsed[0].value : docType;
+              } catch (e) {
+                console.warn(`Failed to parse document type for ${documentKey}:`, e);
+              }
+            }
+            
+            if (docType && docPath && docOriginalName) {
+              documentFields.push({
+                type: String(docType),
+                path: String(docPath),
+                originalName: String(docOriginalName)
+              });
+              console.log(`Found document: ${documentKey} -> ${docOriginalName} (Type: ${docType})`);
+            } else {
+              console.warn(`Incomplete document data for ${documentKey}:`, { docType, docPath, docOriginalName });
+            }
+          }
+        }
+      } else {
+        console.log("⚠️ No documents object found in new format - this may indicate an outdated payload structure");
+        console.log("Expected documents to be in nested format under 'documents' field");
+      }
+
+      // Upload each document
+      for (const document of documentFields) {
+        try {
+          await uploadDocumentToMosip(preRegId, document, preRegAuthToken);
+        } catch (error) {
+          console.error(`Failed to upload document ${document.originalName}:`, error);
+          // Continue with other documents even if one fails
+        }
+      }
+
+      console.log("=== Document Upload Process Completed ===");
+    } else {
+      console.warn("Pre-registration ID not available, skipping document upload");
+    }
   }
 };
 

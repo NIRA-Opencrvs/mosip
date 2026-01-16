@@ -173,15 +173,20 @@ function formatDate(dateString: string, formatStr = "PP") {
   });
 }
 
+const normalizeString = (value: unknown): string => {
+  return typeof value === "string" ? value : "";
+};
+
+
 const pickUserInfo = async (userInfo: OIDPUserInfo) => {
   const nationalId = userInfo.nin;
   const isAlienId = !!nationalId && nationalId.startsWith("A");
 
   return {
     name: {
-      firstname: userInfo.given_name,
-      middlename: userInfo.other_names,
-      surname: userInfo.surname,
+      firstname: normalizeString(userInfo.given_name),
+      middlename: normalizeString(userInfo.other_names),
+      surname: normalizeString(userInfo.surname),
     },
     gender: userInfo?.gender?.toLowerCase(),
     ...(userInfo.birthdate && {

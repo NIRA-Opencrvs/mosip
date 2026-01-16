@@ -174,6 +174,9 @@ function formatDate(dateString: string, formatStr = "PP") {
 }
 
 const pickUserInfo = async (userInfo: OIDPUserInfo) => {
+  const nationalId = userInfo.nin;
+  const isAlienId = !!nationalId && nationalId.startsWith("A");
+
   return {
     name: {
       firstname: userInfo.given_name,
@@ -186,8 +189,15 @@ const pickUserInfo = async (userInfo: OIDPUserInfo) => {
       birthDate: formatDate(userInfo.birthdate, "yyyy-MM-dd"),
     }),
     verificationStatus: "authenticated",
-    idType: "NATIONAL_ID",
-    nid: userInfo.nin,
+    ...(isAlienId
+    ? {
+        idType: "ALIEN_ID",
+        alienID: nationalId,
+      }
+    : {
+        idType: "NATIONAL_ID",
+        nid: nationalId,
+      }),
   };
 };
 

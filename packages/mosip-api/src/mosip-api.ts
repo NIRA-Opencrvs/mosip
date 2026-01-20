@@ -73,11 +73,7 @@ async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer |
 
 export async function getMosipAuthToken(authType: AuthType) {
   // Use different URLs based on authType
-  const authUrl = authType === "WEBSUB"
-    ? "http://localhost:20240/v1/authmanager/authenticate/clientidsecretkey"
-    : "https://api-internal.niradev1.idencode.link/v1/authmanager/authenticate/clientidsecretkey";
-
-  const response = await fetch(authUrl, {
+  const response = await fetch(env.MOSIP_AUTH_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

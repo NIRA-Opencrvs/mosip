@@ -38,5 +38,5 @@ export const OIDPUserInfoHandler = async (
     );
   }
 
-  return fetchUserInfo(tokenResponse.access_token);
+  return fetchUserInfo(tokenResponse.access_token, redirectUri);
 };

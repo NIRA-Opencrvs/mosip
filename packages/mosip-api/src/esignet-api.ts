@@ -173,28 +173,54 @@ function formatDate(dateString: string, formatStr = "PP") {
   });
 }
 
-const pickUserInfo = async (userInfo: OIDPUserInfo) => {
+const normalizeString = (value: unknown): string => {
+  return typeof value === "string" ? value : "";
+};
+
+const getRoleFromRedirectUri = (redirectUri?: string) => {
+  if (!redirectUri) return undefined;
+  if (redirectUri.includes("/pages/mother")) return "mother";
+  if (redirectUri.includes("/pages/father")) return "father";
+  return undefined;
+};
+
+const pickUserInfo = async (
+  userInfo: OIDPUserInfo,
+  redirectUri?: string
+) => {
+  const role = getRoleFromRedirectUri(redirectUri);
+  const gender = userInfo?.gender?.toLowerCase();
+
+  if (
+    (role === "mother" && gender === "male") ||
+    (role === "father" && gender === "female")
+  ) {
+    return {
+      verificationStatus: "failed"
+    };
+  }
+  
   const nationalId = userInfo.nin;
   const isAlienId = !!nationalId && nationalId.startsWith("A");
 
   return {
     name: {
-      firstname: userInfo.given_name,
-      middlename: userInfo.other_names,
-      surname: userInfo.surname,
+      firstname: normalizeString(userInfo.given_name),
+      middlename: normalizeString(userInfo.other_names),
+      surname: normalizeString(userInfo.surname),
     },
-    gender: userInfo?.gender?.toLowerCase(),
+    gender,
     ...(userInfo.birthdate && {
       dobUnknown: null,
       birthDate: formatDate(userInfo.birthdate, "yyyy-MM-dd"),
     }),
     verificationStatus: "authenticated",
     ...(isAlienId
-    ? {
+      ? {
         idType: "ALIEN_ID",
         alienID: nationalId,
       }
-    : {
+      : {
         idType: "NATIONAL_ID",
         nid: nationalId,
       }),
@@ -205,7 +231,10 @@ const decodeUserInfoResponse = (response: string) => {
   return jwt.decode(response) as OIDPUserInfo;
 };
 
-export const fetchUserInfo = async (accessToken: string) => {
+export const fetchUserInfo = async (
+  accessToken: string,
+  redirectUri?: string
+) => {
   const request = await fetch(env.ESIGNET_USERINFO_URL, {
     method: "GET",
     headers: {
@@ -219,10 +248,10 @@ export const fetchUserInfo = async (accessToken: string) => {
   if (!decodedResponse) {
     throw new Error(
       "Something went wrong with the OIDP user info request. No user info was returned. Response from OIDP: " +
-        JSON.stringify(response),
+      JSON.stringify(response),
     );
   }
-  const pickedUserInfo = await pickUserInfo(decodedResponse);
+  const pickedUserInfo = await pickUserInfo(decodedResponse, redirectUri);
   console.log("Picked User Info :", JSON.stringify(pickedUserInfo));
 
   return pickedUserInfo;

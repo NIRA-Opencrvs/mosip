@@ -1,0 +1,103 @@
+[
+    {
+        "name": "gender",
+        "fieldVal": [
+            {
+                "code": "FLE",
+                "value": "Female"
+            },
+            {
+                "code": "MLE",
+                "value": "Male"
+            }
+        ]
+    },
+    {
+        "name": "residenceStatus",
+        "fieldVal": [
+            {
+                "code": "FRN",
+                "value": "Outside Uganda"
+            },
+            {
+                "code": "UGA",
+                "value": "In Uganda"
+            }
+        ]
+    },
+    {
+        "name": "selectedHandles",
+        "fieldVal": [
+            {
+                "code": "SH",
+                "value": "NIN"
+            }
+        ]
+    },
+    {
+        "name": "userService",
+        "fieldVal": [
+            {
+                "code": "NEW",
+                "value": "New Registration"
+            },
+            {
+                "code": "UPDATE",
+                "value": "Change of Particulars/Change of Errors"
+            },
+            {
+                "code": "LOST",
+                "value": "Lost/Replacement of Card"
+            },
+            {
+                "code": "RENEWAL",
+                "value": "Renewal"
+            },
+            {
+                "code": "FIRSTID",
+                "value": "Get First ID"
+            },
+            {
+                "code": "ALIENNEW",
+                "value": "Alien New Registration"
+            },
+            {
+                "code": "ALIENRENEWAL",
+                "value": "Renewal of Alien"
+            },
+            {
+                "code": "ALIENLOST",
+                "value": "Replacement of Alien"
+            }
+        ]
+    },
+    {
+        "name": "userServiceType",
+        "fieldVal": [
+            {
+                "code": "CBBI",
+                "value": "By Birth /Descent"
+            },
+            {
+                "code": "CBREG",
+                "value": "By Registration"
+            },
+            {
+                "code": "CRVS",
+                "value": "OpenCRVS"
+            },
+            {
+                "code": "NAT",
+                "value": "By Naturalization"
+            },
+            {
+                "code": "CUAN",
+                "value": "Citizenship under the Article 9"
+            },
+            {
+                "code": "DLN",
+                "value": "Dual Citizenship"
+            }
+        ]
+    }
+]

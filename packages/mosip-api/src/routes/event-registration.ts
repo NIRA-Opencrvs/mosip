@@ -27,10 +27,10 @@ export const registrationEventHandler = async (
 
     request.log.info({ transactionId }, "Event ID");
 
-    insertTransaction(transactionId, token, birthCertificateNumber);
+    // insertTransaction(transactionId, token, birthCertificateNumber);
 
     await mosip.postBirthRecord({
-      event: { id: transactionId, trackingId },
+      event: { id: transactionId, trackingId, token },
       requestFields,
       audit,
       metaInfo,

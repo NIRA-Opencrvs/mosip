@@ -19,6 +19,7 @@ import {
   processLocationHierarchy,
 } from "./dynamic-fields";
 import { error } from "console";
+import { insertTransaction } from "./database";
 
 export class MOSIPError extends Error {
   constructor(message: string) {
@@ -299,13 +300,13 @@ export const postBirthRecord = async ({
   event: {
     id: string;
     trackingId: string;
+    token: string;
   };
   requestFields: BirthRequestFields;
   audit: MosipInteropPayload["audit"];
   metaInfo: MosipInteropPayload["metaInfo"];
   notification: MosipInteropPayload["notification"];
 }) => {
-
   const authToken = await getMosipAuthToken("PACKET");
 
   const documentFields = await extractDocumentFields(requestFields);
@@ -315,7 +316,10 @@ export const postBirthRecord = async ({
     : String(requestFields.dateOfBirth);
 
   const ageInMonths = getAgeInMonths(dob);
+  const birthCertificateNumber = requestFields.birthCertificateNumber;
   if (ageInMonths < 9) {
+    insertTransaction(event.id, event.token, birthCertificateNumber);
+
     const { documents, ...newRequestBody } = requestFields;
     const requestBody = JSON.stringify(
       {
@@ -338,7 +342,6 @@ export const postBirthRecord = async ({
       null,
       2,
     );
-
 
     const createPacketResponse = await fetch(env.MOSIP_CREATE_PACKET_URL, {
       method: "PUT",
@@ -402,7 +405,6 @@ export const postBirthRecord = async ({
       );
     }
   } else {
-
     const identity: Record<string, any> = {
       IDSchemaVersion: 8.4,
       userService: 'NEW',
@@ -493,6 +495,8 @@ export const postBirthRecord = async ({
     if (!preRegId) {
       throw new Error("Failed to get pre-registration ID from MOSIP response");
     }
+
+    insertTransaction(preRegId, event.token, birthCertificateNumber);
 
     const statusUrl =
       `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg/status/${preRegId}?statusCode=Pending_Appointment`;

@@ -110,10 +110,16 @@ export const fetchToken = async ({
 }: FetchTokenProps) => {
   const clientAssertion = await generateSignedJwt(clientId);
   console.log("client assertion: ", clientAssertion);
+
+  const url = new URL(redirectUri);
+  url.searchParams.delete("state");
+  url.searchParams.delete("code");
+  redirectUri = url.toString();
+
   const body = new URLSearchParams({
     code: code,
     client_id: clientId,
-    redirect_uri: redirectUri?.split("?")[0] ?? redirectUri,
+    redirect_uri: redirectUri,
     grant_type: "authorization_code",
     client_assertion_type:
       "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",

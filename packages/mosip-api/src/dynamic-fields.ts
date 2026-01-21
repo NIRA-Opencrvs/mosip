@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import * as path from "path";
 
-const DYN_FIELDS_PATH = path.resolve(__dirname, '../../..', 'dynamic_fields_dataset.json');
+const DYN_FIELDS_PATH = path.resolve(__dirname, 'dynamic_fields_dataset.json');
 
 type DynamicFieldsDataset = Array<{ name: string; fieldVal: Array<{ code: string; value: string }> }>;
 
@@ -26,7 +26,7 @@ for (const field of dynamicFieldsDataset) {
   dynamicFieldsMap.set(field.name.toLowerCase(), valueToCodeMap);
 }
 
-const LOCATION_DATA_PATH = path.resolve(__dirname, '../../..', 'location_data.json');
+const LOCATION_DATA_PATH = path.resolve(__dirname, 'location_data.json');
 
 type LocationDataset = Array<{ 
   name: string; 

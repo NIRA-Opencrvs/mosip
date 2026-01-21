@@ -99,5 +99,750 @@
                 "value": "Dual Citizenship"
             }
         ]
+    },
+    {
+        "name": "District",
+        "fieldVal": [
+            {
+                "code": "1",
+                "name": "HOIMA (06)"
+            },
+            {
+                "code": "2",
+                "name": "KIBAALE (16)"
+            },
+            {
+                "code": "3",
+                "name": "MASINDI (25)"
+            },
+            {
+                "code": "4",
+                "name": "BULIISA (73)"
+            },
+            {
+                "code": "ANG",
+                "name": "Angola - Luanda"
+            },
+            {
+                "code": "BUR",
+                "name": "Burundi - Bujumbura"
+            },
+            {
+                "code": "CAN",
+                "name": "Canada - Ottawa"
+            },
+            {
+                "code": "SS",
+                "name": "South Sudan - Juba"
+            },
+            {
+                "code": "SA",
+                "name": "South Africa - Pretoria"
+            },
+            {
+                "code": "USA",
+                "name": "USA - Washington, D.C."
+            },
+            {
+                "code": "TANZ",
+                "name": "Tanzania - Dar Es Salaam"
+            },
+            {
+                "code": "CHI",
+                "name": "China - Beijing"
+            },
+            {
+                "code": "KEN",
+                "name": "Kenya - Nairobi"
+            },
+            {
+                "code": "DRC",
+                "name": "DRC - Kinshasa"
+            },
+            {
+                "code": "5",
+                "name": "KIRYANDONGO (92)"
+            },
+            {
+                "code": "6",
+                "name": "KAGADI (113)"
+            },
+            {
+                "code": "7",
+                "name": "KAKUMIRO (114)"
+            },
+            {
+                "code": "8",
+                "name": "KIKUUBE (126)"
+            },
+            {
+                "code": "9",
+                "name": "HOIMA CITY (145)"
+            },
+            {
+                "code": "10",
+                "name": "KIBOGA (17)"
+            },
+            {
+                "code": "11",
+                "name": "LUWEERO (23)"
+            },
+            {
+                "code": "12",
+                "name": "NAKASONGOLA (44)"
+            },
+            {
+                "code": "13",
+                "name": "KAYUNGA (47)"
+            },
+            {
+                "code": "14",
+                "name": "NAKASEKE (69)"
+            },
+            {
+                "code": "15",
+                "name": "KYANKWANZI (93)"
+            },
+            {
+                "code": "16",
+                "name": "KALANGALA (11)"
+            },
+            {
+                "code": "17",
+                "name": "MASAKA (24)"
+            },
+            {
+                "code": "18",
+                "name": "MPIGI (30)"
+            },
+            {
+                "code": "19",
+                "name": "MUBENDE (31)"
+            },
+            {
+                "code": "20",
+                "name": "RAKAI (36)"
+            },
+            {
+                "code": "21",
+                "name": "SSEMBABULE (45)"
+            },
+            {
+                "code": "22",
+                "name": "MITYANA (68)"
+            },
+            {
+                "code": "23",
+                "name": "LYANTONDE (80)"
+            },
+            {
+                "code": "24",
+                "name": "GOMBA (91)"
+            },
+            {
+                "code": "25",
+                "name": "BUKOMANSIMBI (98)"
+            },
+            {
+                "code": "26",
+                "name": "BUTAMBALA (99)"
+            },
+            {
+                "code": "27",
+                "name": "KALUNGU (100)"
+            },
+            {
+                "code": "28",
+                "name": "LWENGO (105)"
+            },
+            {
+                "code": "29",
+                "name": "KYOTERA (119)"
+            },
+            {
+                "code": "30",
+                "name": "KASSANDA (125)"
+            },
+            {
+                "code": "31",
+                "name": "MASAKA CITY (141)"
+            },
+            {
+                "code": "32",
+                "name": "KUMI (21)"
+            },
+            {
+                "code": "33",
+                "name": "SOROTI (38)"
+            },
+            {
+                "code": "34",
+                "name": "KATAKWI (43)"
+            },
+            {
+                "code": "35",
+                "name": "KABERAMAIDO (54)"
+            },
+            {
+                "code": "36",
+                "name": "AMURIA (58)"
+            },
+            {
+                "code": "37",
+                "name": "BUKEDEA (79)"
+            },
+            {
+                "code": "38",
+                "name": "SERERE (97)"
+            },
+            {
+                "code": "39",
+                "name": "NGORA (108)"
+            },
+            {
+                "code": "40",
+                "name": "KAPELEBYONG (124)"
+            },
+            {
+                "code": "41",
+                "name": "KALAKI (129)"
+            },
+            {
+                "code": "42",
+                "name": "SOROTI CITY (146)"
+            },
+            {
+                "code": "43",
+                "name": "KAPCHORWA (14)"
+            },
+            {
+                "code": "44",
+                "name": "MBALE (26)"
+            },
+            {
+                "code": "45",
+                "name": "PALLISA (35)"
+            },
+            {
+                "code": "46",
+                "name": "TORORO (39)"
+            },
+            {
+                "code": "47",
+                "name": "BUSIA (42)"
+            },
+            {
+                "code": "48",
+                "name": "SIRONKO (51)"
+            },
+            {
+                "code": "49",
+                "name": "BUKWO (59)"
+            },
+            {
+                "code": "50",
+                "name": "BUTALEJA (60)"
+            },
+            {
+                "code": "51",
+                "name": "MANAFWA (67)"
+            },
+            {
+                "code": "52",
+                "name": "BUDAKA (72)"
+            },
+            {
+                "code": "53",
+                "name": "BUDUDA (78)"
+            },
+            {
+                "code": "54",
+                "name": "BULAMBULI (89)"
+            },
+            {
+                "code": "55",
+                "name": "KIBUKU (102)"
+            },
+            {
+                "code": "56",
+                "name": "KWEEN (104)"
+            },
+            {
+                "code": "57",
+                "name": "BUTEBO (118)"
+            },
+            {
+                "code": "58",
+                "name": "NAMISINDWA (120)"
+            },
+            {
+                "code": "59",
+                "name": "MBALE CITY (142)"
+            },
+            {
+                "code": "60",
+                "name": "KAMPALA (12)"
+            },
+            {
+                "code": "61",
+                "name": "MUKONO (32)"
+            },
+            {
+                "code": "62",
+                "name": "WAKISO (52)"
+            },
+            {
+                "code": "63",
+                "name": "BUIKWE (82)"
+            },
+            {
+                "code": "64",
+                "name": "BUVUMA (90)"
+            },
+            {
+                "code": "65",
+                "name": "KOTIDO (20)"
+            },
+            {
+                "code": "66",
+                "name": "MOROTO (28)"
+            },
+            {
+                "code": "67",
+                "name": "NAKAPIRIPIRIT (56)"
+            },
+            {
+                "code": "68",
+                "name": "KAABONG (63)"
+            },
+            {
+                "code": "69",
+                "name": "ABIM (70)"
+            },
+            {
+                "code": "70",
+                "name": "AMUDAT (81)"
+            },
+            {
+                "code": "71",
+                "name": "NAPAK (107)"
+            },
+            {
+                "code": "72",
+                "name": "NABILATUK (128)"
+            },
+            {
+                "code": "73",
+                "name": "KARENGA (130)"
+            },
+            {
+                "code": "74",
+                "name": "IGANGA (07)"
+            },
+            {
+                "code": "75",
+                "name": "JINJA (08)"
+            },
+            {
+                "code": "76",
+                "name": "KAMULI (13)"
+            },
+            {
+                "code": "77",
+                "name": "BUGIRI (41)"
+            },
+            {
+                "code": "78",
+                "name": "MAYUGE (49)"
+            },
+            {
+                "code": "79",
+                "name": "KALIRO (64)"
+            },
+            {
+                "code": "80",
+                "name": "NAMUTUMBA (75)"
+            },
+            {
+                "code": "81",
+                "name": "BUYENDE (83)"
+            },
+            {
+                "code": "82",
+                "name": "LUUKA (94)"
+            },
+            {
+                "code": "83",
+                "name": "NAMAYINGO (95)"
+            },
+            {
+                "code": "84",
+                "name": "BUGWERI (123)"
+            },
+            {
+                "code": "85",
+                "name": "JINJA CITY (138)"
+            },
+            {
+                "code": "86",
+                "name": "BUNDIBUGYO (03)"
+            },
+            {
+                "code": "87",
+                "name": "KABAROLE (10)"
+            },
+            {
+                "code": "88",
+                "name": "KASESE (15)"
+            },
+            {
+                "code": "89",
+                "name": "KAMWENGE (46)"
+            },
+            {
+                "code": "90",
+                "name": "KYENJOJO (48)"
+            },
+            {
+                "code": "91",
+                "name": "KYEGEGWA (84)"
+            },
+            {
+                "code": "92",
+                "name": "NTOROKO (96)"
+            },
+            {
+                "code": "93",
+                "name": "BUNYANGABU (117)"
+            },
+            {
+                "code": "94",
+                "name": "KITAGWENDA (132)"
+            },
+            {
+                "code": "95",
+                "name": "FORT PORTAL CITY (139)"
+            },
+            {
+                "code": "96",
+                "name": "APAC (01)"
+            },
+            {
+                "code": "97",
+                "name": "GULU (05)"
+            },
+            {
+                "code": "98",
+                "name": "KITGUM (19)"
+            },
+            {
+                "code": "99",
+                "name": "LIRA (22)"
+            },
+            {
+                "code": "100",
+                "name": "PADER (50)"
+            },
+            {
+                "code": "101",
+                "name": "AMOLATAR (57)"
+            },
+            {
+                "code": "102",
+                "name": "AMURU (71)"
+            },
+            {
+                "code": "103",
+                "name": "DOKOLO (74)"
+            },
+            {
+                "code": "104",
+                "name": "OYAM (76)"
+            },
+            {
+                "code": "105",
+                "name": "LAMWO (85)"
+            },
+            {
+                "code": "106",
+                "name": "OTUKE (86)"
+            },
+            {
+                "code": "107",
+                "name": "ALEBTONG (88)"
+            },
+            {
+                "code": "108",
+                "name": "KOLE (103)"
+            },
+            {
+                "code": "109",
+                "name": "NWOYA (110)"
+            },
+            {
+                "code": "110",
+                "name": "AGAGO (111)"
+            },
+            {
+                "code": "111",
+                "name": "OMORO (115)"
+            },
+            {
+                "code": "112",
+                "name": "KWANIA (127)"
+            },
+            {
+                "code": "113",
+                "name": "GULU CITY (137)"
+            },
+            {
+                "code": "114",
+                "name": "LIRA CITY (144)"
+            },
+            {
+                "code": "115",
+                "name": "BUSHENYI (04)"
+            },
+            {
+                "code": "116",
+                "name": "KABALE (09)"
+            },
+            {
+                "code": "117",
+                "name": "KISORO (18)"
+            },
+            {
+                "code": "118",
+                "name": "MBARARA (27)"
+            },
+            {
+                "code": "119",
+                "name": "NTUNGAMO (34)"
+            },
+            {
+                "code": "120",
+                "name": "RUKUNGIRI (37)"
+            },
+            {
+                "code": "121",
+                "name": "KANUNGU (55)"
+            },
+            {
+                "code": "122",
+                "name": "IBANDA (61)"
+            },
+            {
+                "code": "123",
+                "name": "ISINGIRO (62)"
+            },
+            {
+                "code": "124",
+                "name": "KIRUHURA (65)"
+            },
+            {
+                "code": "125",
+                "name": "SHEEMA (101)"
+            },
+            {
+                "code": "126",
+                "name": "MITOOMA (106)"
+            },
+            {
+                "code": "127",
+                "name": "BUHWEJU (109)"
+            },
+            {
+                "code": "128",
+                "name": "RUBIRIZI (112)"
+            },
+            {
+                "code": "129",
+                "name": "RUBANDA (116)"
+            },
+            {
+                "code": "130",
+                "name": "RUKIGA (122)"
+            },
+            {
+                "code": "131",
+                "name": "KAZO (131)"
+            },
+            {
+                "code": "132",
+                "name": "RWAMPARA (135)"
+            },
+            {
+                "code": "133",
+                "name": "MBARARA CITY (140)"
+            },
+            {
+                "code": "134",
+                "name": "ARUA (02)"
+            },
+            {
+                "code": "135",
+                "name": "MOYO (29)"
+            },
+            {
+                "code": "136",
+                "name": "NEBBI (33)"
+            },
+            {
+                "code": "137",
+                "name": "ADJUMANI (40)"
+            },
+            {
+                "code": "138",
+                "name": "YUMBE (53)"
+            },
+            {
+                "code": "139",
+                "name": "KOBOKO (66)"
+            },
+            {
+                "code": "140",
+                "name": "MARACHA (77)"
+            },
+            {
+                "code": "141",
+                "name": "ZOMBO (87)"
+            },
+            {
+                "code": "142",
+                "name": "PAKWACH (121)"
+            },
+            {
+                "code": "143",
+                "name": "MADI-OKOLLO (133)"
+            },
+            {
+                "code": "144",
+                "name": "OBONGI (134)"
+            },
+            {
+                "code": "145",
+                "name": "ARUA CITY (136)"
+            },
+            {
+                "code": "146",
+                "name": "TEREGO (143)"
+            },
+            {
+                "code": "AUS",
+                "name": "Australia - Canberra "
+            },
+            {
+                "code": "ALG",
+                "name": "Algeria - Algiers"
+            },
+            {
+                "code": "BEL",
+                "name": "Belgium - Brussels"
+            },
+            {
+                "code": "CUB",
+                "name": "Cuba - Havana"
+            },
+            {
+                "code": "DEN",
+                "name": "Denmark - Copenhagen"
+            },
+            {
+                "code": "EGY",
+                "name": "Egypt - Cairo"
+            },
+            {
+                "code": "ETH",
+                "name": "Ethiopia - Addis Ababa"
+            },
+            {
+                "code": "FRA",
+                "name": "France - Paris"
+            },
+            {
+                "code": "GER",
+                "name": "Germany - Berlin"
+            },
+            {
+                "code": "IND",
+                "name": "India - New Delhi"
+            },
+            {
+                "code": "IRA",
+                "name": "Iran - Tehran"
+            },
+            {
+                "code": "ITA",
+                "name": "Italy - Rome"
+            },
+            {
+                "code": "JAP",
+                "name": "Japan - Tokyo"
+            },
+            {
+                "code": "MAL",
+                "name": "Malaysia - Kuala Lumpur"
+            },
+            {
+                "code": "NIG",
+                "name": "Nigeria - Abuja"
+            },
+            {
+                "code": "QAT",
+                "name": "Qatar - Doha"
+            },
+            {
+                "code": "RUS",
+                "name": "Russia - Moscow"
+            },
+            {
+                "code": "RWA",
+                "name": "Rwanda - Kigali"
+            },
+            {
+                "code": "SAU",
+                "name": "Saudi Arabia - Riyadh"
+            },
+            {
+                "code": "SOM",
+                "name": "Somalia - Mogadishu"
+            },
+            {
+                "code": "SUD",
+                "name": "Sudan - Khartoum"
+            },
+            {
+                "code": "TUR",
+                "name": "Turkey - Ankara"
+            },
+            {
+                "code": "UAE",
+                "name": "UAE - Abu Dhabi"
+            },
+            {
+                "code": "UK",
+                "name": "United Kingdom - London"
+            },
+            {
+                "code": "TANZA",
+                "name": "Tanzania - Arusha"
+            },
+            {
+                "code": "USANEW",
+                "name": "USA - New York"
+            },
+            {
+                "code": "KENYA",
+                "name": "Kenya - Mombasa"
+            },
+            {
+                "code": "DRCG",
+                "name": "DRC - Goma"
+            },
+            {
+                "code": "CHINA",
+                "name": "China - Guangzhou"
+            }
+        ]
     }
 ]

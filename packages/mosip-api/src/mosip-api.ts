@@ -32,14 +32,6 @@ export type AuthType = "PACKET" | "WEBSUB";
 
 const execAsync = promisify(exec);
 
-// MinIO configuration
-const MINIO_CONFIG = {
-  alias: 'opencrvs-minio',
-  host: 'localhost:3535',
-  username: 'minioadmin',
-  password: 'minioadmin'
-};
-
 async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer | null> {
   try {
     const minioObjectPath = documentPath.startsWith('/') ? documentPath.slice(1) : documentPath;
@@ -52,9 +44,9 @@ async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer |
     const fileName = path.basename(documentPath);
     const timestamp = Date.now();
     const tempFilePath = path.join(tempDir, `${timestamp}_${fileName}`);
-    await execAsync(`mc alias set ${MINIO_CONFIG.alias} http://${MINIO_CONFIG.host} ${MINIO_CONFIG.username} ${MINIO_CONFIG.password}`);
+    await execAsync(`mc alias set ${env.MINIO_ALIAS} http://${env.MINIO_HOST} ${env.MINIO_USERNAME} ${env.MINIO_PASSWORD}`);
 
-    const downloadCommand = `mc cp "${MINIO_CONFIG.alias}/${minioObjectPath}" "${tempFilePath}"`;
+    const downloadCommand = `mc cp "${env.MINIO_ALIAS}/${minioObjectPath}" "${tempFilePath}"`;
     await execAsync(downloadCommand);
 
     if (fs.existsSync(tempFilePath)) {
@@ -410,7 +402,7 @@ export const postBirthRecord = async ({
       userService: 'NEW',
       userServiceType: [{ language: 'eng', value: 'CRVS' }]
     };
-    const applicantLocationCodes = await processLocationHierarchy(requestFields);
+    const applicantLocationCodes = await processLocationHierarchy(requestFields, authToken, env.IDA_AUTH_DOMAIN_URI);
 
     for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
       if (fieldValue == null || fieldValue === '') continue;
@@ -468,6 +460,8 @@ export const postBirthRecord = async ({
         requiredFields: ["givenName", "surname", "dateOfBirth", "gender"]
       }
     };
+
+    console.log("Payload to mosip : ",identity)
   
     // const IDA_AUTH_DOMAIN_URI = "http://localhost:9091";
     const SPRING_SERVICE_URL = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg`;
@@ -490,7 +484,7 @@ export const postBirthRecord = async ({
     }
     const preRegId = createData?.response?.preRegistrationId;
 
-    console.log("Pre-registration creation response:", preRegId);
+    console.log("Pre-registration Id:", preRegId);
 
     if (!preRegId) {
       throw new Error("Failed to get pre-registration ID from MOSIP response");

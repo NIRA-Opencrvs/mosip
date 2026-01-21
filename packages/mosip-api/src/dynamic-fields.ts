@@ -18,37 +18,17 @@ const dynamicFieldsMap = new Map<string, Map<string, string>>();
 for (const field of dynamicFieldsDataset) {
   const valueToCodeMap = new Map<string, string>();
   for (const fv of field.fieldVal) {
-    // Store both exact value and lowercase for flexible matching
-    valueToCodeMap.set(fv.value, fv.code);
-    valueToCodeMap.set(fv.value.toLowerCase(), fv.code);
+    // Handle both 'value' and 'name' properties (District uses 'name')
+    const fieldValue = (fv as any).value || (fv as any).name;
+    if (fieldValue) {
+      // Store both exact value and lowercase for flexible matching
+      valueToCodeMap.set(fieldValue, fv.code);
+      valueToCodeMap.set(fieldValue.toLowerCase(), fv.code);
+    }
   }
   dynamicFieldsMap.set(field.name, valueToCodeMap);
   dynamicFieldsMap.set(field.name.toLowerCase(), valueToCodeMap);
 }
-
-const LOCATION_DATA_PATH = path.resolve(__dirname, '../../..', 'location_data.json');
-
-type LocationDataset = Array<{ 
-  name: string; 
-  fieldVal: Array<{ 
-    code: string; 
-    value: string; 
-    parent_loc_code: string; 
-  }> 
-}>;
-
-let locationDataset: LocationDataset = [];
-try {
-  locationDataset = JSON.parse(readFileSync(LOCATION_DATA_PATH, 'utf8'));
-  console.log(`[Location Data] Loaded ${locationDataset.length} location types from ${LOCATION_DATA_PATH}`);
-} catch (e) {
-  console.warn(`[Location Data] Could not load dataset from ${LOCATION_DATA_PATH}:`, (e as Error).message);
-}
-
-
-export const loadLocationData = (): LocationDataset => {
-  return locationDataset;
-};
 
 export const isDynamicField = (fieldName: string): boolean => {
   return dynamicFieldsMap.has(fieldName) || dynamicFieldsMap.has(fieldName.toLowerCase());
@@ -74,7 +54,6 @@ export const findCodeForFieldValue = (fieldName: string, label?: string | null):
   return needle;
 };
 
-
 export const pickFirstString = (value: any): string | undefined => {
   if (value == null) return undefined;
   if (typeof value === 'string') {
@@ -95,59 +74,153 @@ export const pickFirstString = (value: any): string | undefined => {
   return String(value);
 };
 
-
 export const isLangArrayString = (value: any): boolean => {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   return trimmed.startsWith('[{"language"') || trimmed.startsWith('[{\"language\"');
 };
 
+// Find district code from dynamic_fields_dataset.json
+const findDistrictCode = (districtName: string): string | undefined => {
+  const districtData = dynamicFieldsDataset.find(item => item.name === 'District');
+  if (!districtData) return undefined;
 
-const findLocationByName = (locationName: string, locationType: string, locationData: any[]): any => {
-  const locationTypeData = locationData.find(item => item.name === locationType);
-  if (!locationTypeData) return null;
-  const normalizedSearchName = locationName.toUpperCase().replace(/\s+/g, '');
-  
-  let match = locationTypeData.fieldVal.find((loc: any) => 
-    loc.value.toUpperCase().includes(locationName.toUpperCase())
+  const normalizedSearchName = districtName.toUpperCase().trim();
+
+  // Try exact match first
+  let match = (districtData.fieldVal as any[]).find((loc: any) =>
+    loc.name?.toUpperCase() === normalizedSearchName
   );
-  
-  if (!match && locationType === 'Village') {
-    const searchWords = locationName.toUpperCase().split(/\s+/);
-    const candidates = locationTypeData.fieldVal.filter((loc: any) => {
-      const locValue = loc.value.toUpperCase();
-      return searchWords.filter(word => locValue.includes(word) || word.includes(locValue.split('(')[0].trim())).length >= Math.max(1, searchWords.length - 1);
+
+  // Try partial match
+  if (!match) {
+    match = (districtData.fieldVal as any[]).find((loc: any) =>
+      loc.name?.toUpperCase().includes(normalizedSearchName) ||
+      normalizedSearchName.includes(loc.name?.toUpperCase().split('(')[0].trim())
+    );
+  }
+
+  return match?.code;
+};
+
+// Fetch immediate children locations from MOSIP API
+const fetchImmediateChildren = async (
+  parentCode: string,
+  childType: string,
+  authToken: string,
+  baseUrl: string
+): Promise<Array<{ code: string; name: string; parentLocCode: string }>> => {
+  try {
+    const url = `${baseUrl}/preregistration/v1/proxy/masterdata/locations/immediatechildren/${parentCode}/${childType}/eng`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: `Authorization=${authToken};`
+      }
     });
-    
-    if (candidates.length > 0) {
-      match = candidates.find((loc: any) => {
-        const normalizedLocValue = loc.value.toUpperCase().replace(/\s+/g, '').split('(')[0];
-        return normalizedLocValue === normalizedSearchName || normalizedSearchName.includes(normalizedLocValue);
-      }) || candidates[0]; 
+
+    if (!response.ok) {
+      console.error(`[Location API] Failed to fetch ${childType} for parent ${parentCode}: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data?.response?.locations || [];
+  } catch (error) {
+    console.error(`[Location API] Error fetching ${childType} for parent ${parentCode}:`, error);
+    return [];
+  }
+};
+
+// Find location code from API response by matching name
+const findLocationCodeFromApiResponse = (
+  locationName: string,
+  locations: Array<{ code: string; name: string }>
+): string | undefined => {
+  if (!locationName || !locations || locations.length === 0) return undefined;
+
+  const normalizedSearchName = locationName.toUpperCase().trim();
+
+  let match = locations.find(loc =>
+    loc.name?.toUpperCase() === normalizedSearchName
+  );
+
+  if (!match) {
+    match = locations.find(loc => {
+      const locUpper = loc.name?.toUpperCase() || '';
+      return locUpper.includes(normalizedSearchName) ||
+        normalizedSearchName.includes(locUpper);
+    });
+  }
+
+  if (!match) {
+    const searchWithoutParens = normalizedSearchName.split('(')[0].trim();
+    match = locations.find(loc => {
+      const locWithoutParens = (loc.name?.toUpperCase() || '').split('(')[0].trim();
+      return locWithoutParens === searchWithoutParens ||
+        locWithoutParens.includes(searchWithoutParens) ||
+        searchWithoutParens.includes(locWithoutParens);
+    });
+  }
+
+  if (!match) {
+    const firstWord = normalizedSearchName.split(/\s+/)[0];
+    if (firstWord && firstWord.length >= 3) {
+      match = locations.find(loc => {
+        const locUpper = loc.name?.toUpperCase() || '';
+        const locFirstWord = locUpper.split(/\s+/)[0];
+        return locFirstWord === firstWord || locUpper.startsWith(firstWord);
+      });
     }
   }
-  
   if (!match) {
-    match = locationTypeData.fieldVal.find((loc: any) => {
-      const normalizedLocValue = loc.value.toUpperCase().replace(/\s+/g, '');
-      return normalizedLocValue.includes(normalizedSearchName) || 
-             normalizedSearchName.includes(normalizedLocValue.split('(')[0].trim());
-    });
+    const abbreviations: Record<string, string[]> = {
+      'TOWN COUNCIL': ['TC', 'T/C', 'T.C'],
+      'TOWN BOARD': ['TB', 'T/B'],
+      'SUB COUNTY': ['SC', 'S/C', 'S.C', 'SUBCOUNTY'],
+      'MUNICIPAL COUNCIL': ['MC', 'M/C'],
+      'MUNICIPALITY': ['MUNI', 'MUN'],
+      'DIVISION': ['DIV'],
+    };
+
+    for (const [full, abbrevs] of Object.entries(abbreviations)) {
+      if (normalizedSearchName.includes(full)) {
+        // Try each abbreviation
+        for (const abbrev of abbrevs) {
+          const searchWithAbbrev = normalizedSearchName.replace(full, abbrev);
+          match = locations.find(loc => {
+            const locUpper = loc.name?.toUpperCase() || '';
+            return locUpper.includes(searchWithAbbrev) ||
+              searchWithAbbrev.includes(locUpper.split('(')[0].trim());
+          });
+          if (match) break;
+        }
+      }
+      for (const abbrev of abbrevs) {
+        if (normalizedSearchName.includes(abbrev)) {
+          const searchWithFull = normalizedSearchName.replace(abbrev, full);
+          match = locations.find(loc => {
+            const locUpper = loc.name?.toUpperCase() || '';
+            return locUpper.includes(searchWithFull) ||
+              searchWithFull.includes(locUpper.split('(')[0].trim());
+          });
+          if (match) break;
+        }
+      }
+      if (match) break;
+    }
   }
-  
-  return match;
+
+  return match?.code;
 };
 
-
-const findLocationByCode = (code: string, locationType: string, locationData: any[]): any => {
-  const locationTypeData = locationData.find(item => item.name === locationType);
-  if (!locationTypeData) return null;
-  
-  return locationTypeData.fieldVal.find((loc: any) => loc.code === code);
-};
-
-
-export const processLocationHierarchy = async (requestFields: any): Promise<{
+export const processLocationHierarchy = async (
+  requestFields: any,
+  authToken: string,
+  baseUrl: string
+): Promise<{
   districtCode?: string;
   countyCode?: string;
   subCountyCode?: string;
@@ -155,42 +228,77 @@ export const processLocationHierarchy = async (requestFields: any): Promise<{
   villageCode?: string;
 }> => {
   const result: any = {};
-  
-  try {
-    const locationData = loadLocationData();
-    const residenceStatus = pickFirstString(requestFields.appBirCountryUGA);
-    const villageValue = pickFirstString(requestFields.applicantPlaceOfBirthVillage);
-    if (residenceStatus !== 'UGA') {
-      return result;
-    }
-    
-    if (!villageValue) {
-      return result;
-    }
-    const village = findLocationByName(villageValue, 'Village', locationData);
 
-    if (!village) {
+  try {
+    const residenceStatus = pickFirstString(requestFields.appBirCountryUGA);
+
+    // Only process for Uganda residents
+    if (residenceStatus !== 'UGA') {
+      console.log('[Location Hierarchy] Skipping - not Uganda resident');
       return result;
     }
-    
-    result.villageCode = village.code;
-    const parish = findLocationByCode(village.parent_loc_code, 'Parish', locationData);
-    if (parish) {
-      result.parishCode = parish.code;
-      const subCounty = findLocationByCode(parish.parent_loc_code, 'SubCounty', locationData);
-      if (subCounty) {
-        result.subCountyCode = subCounty.code;
-        const county = findLocationByCode(subCounty.parent_loc_code, 'County', locationData);
-        if (county) {
-          result.countyCode = county.code;
-          const district = findLocationByCode(county.parent_loc_code, 'District', locationData);
-          if (district) {
-            result.districtCode = district.code;
+
+    // Extract location values from request fields
+    const districtValue = pickFirstString(requestFields.applicantPlaceOfBirthDistrict);
+    const countyValue = pickFirstString(requestFields.applicantPlaceOfBirthCounty);
+    const subCountyValue = pickFirstString(requestFields.applicantPlaceOfBirthSubCounty);
+    const parishValue = pickFirstString(requestFields.applicantPlaceOfBirthParish);
+    const villageValue = pickFirstString(requestFields.applicantPlaceOfBirthVillage);
+
+    if (!districtValue) {
+      console.log('[Location Hierarchy] No district value provided');
+      return result;
+    }
+
+    const districtCode = findDistrictCode(districtValue);
+    if (!districtCode) {
+      return result;
+    }
+    result.districtCode = districtCode;
+
+    if (countyValue) {
+      const counties = await fetchImmediateChildren(districtCode, 'County', authToken, baseUrl);
+      const countyCode = findLocationCodeFromApiResponse(countyValue, counties);
+      if (countyCode) {
+        result.countyCode = countyCode;
+
+
+        if (subCountyValue) {
+          const subCounties = await fetchImmediateChildren(countyCode, 'SubCounty', authToken, baseUrl);
+          const subCountyCode = findLocationCodeFromApiResponse(subCountyValue, subCounties);
+          if (subCountyCode) {
+            result.subCountyCode = subCountyCode;
+
+
+            if (parishValue) {
+              const parishes = await fetchImmediateChildren(subCountyCode, 'Parish', authToken, baseUrl);
+              const parishCode = findLocationCodeFromApiResponse(parishValue, parishes);
+              if (parishCode) {
+                result.parishCode = parishCode;
+
+
+                if (villageValue) {
+                  const villages = await fetchImmediateChildren(parishCode, 'Village', authToken, baseUrl);
+                  const villageCode = findLocationCodeFromApiResponse(villageValue, villages);
+                  if (villageCode) {
+                    result.villageCode = villageCode;
+                  } else {
+                    console.log(`[Location Hierarchy] Village not found: ${villageValue}`);
+                  }
+                }
+              } else {
+                console.log(`[Location Hierarchy] Parish not found: ${parishValue}`);
+              }
+            }
+          } else {
+            console.log(`[Location Hierarchy] SubCounty not found: ${subCountyValue}`);
           }
         }
+      } else {
+        console.log(`[Location Hierarchy] County not found: ${countyValue}`);
       }
     }
-    
+
   } catch (error) {
     console.error('[Location Hierarchy] Error processing location hierarchy:', error);
   }

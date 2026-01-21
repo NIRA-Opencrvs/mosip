@@ -90,7 +90,7 @@ export const env = cleanEnv(process.env, {
   }),
   PARTNER_ID: str({ devDefault: "crvs-partner" }),
 
-  // MOSIP IDA auth server
+    // MOSIP IDA auth server
   IDA_AUTH_DOMAIN_URI: str({ devDefault: "http://localhost:20240" }),
   IDA_AUTH_URL: str({
     devDefault: "http://localhost:20240/idauthentication/v1/auth",
@@ -124,6 +124,24 @@ export const env = cleanEnv(process.env, {
   }),
   MOSIP_MACHINE_ID: str({
     devDefault: "10004",
+  }),
+
+  // MinIO configuration
+  MINIO_ALIAS: str({
+    devDefault: "opencrvs-minio",
+    desc: "MinIO alias for mc command",
+  }),
+  MINIO_HOST: str({
+    devDefault: "localhost:3535",
+    desc: "MinIO host and port",
+  }),
+  MINIO_USERNAME: str({
+    devDefault: "minioadmin",
+    desc: "MinIO username",
+  }),
+  MINIO_PASSWORD: str({
+    devDefault: "minioadmin",
+    desc: "MinIO password",
   }),
 });
 

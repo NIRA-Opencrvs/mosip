@@ -33,12 +33,7 @@ export type AuthType = "PACKET" | "WEBSUB";
 const execAsync = promisify(exec);
 
 // MinIO configuration
-const MINIO_CONFIG = {
-  alias: 'opencrvs-minio',
-  host: 'localhost:3535',
-  username: 'minioadmin',
-  password: 'minioadmin'
-};
+
 
 async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer | null> {
   try {
@@ -52,9 +47,9 @@ async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer |
     const fileName = path.basename(documentPath);
     const timestamp = Date.now();
     const tempFilePath = path.join(tempDir, `${timestamp}_${fileName}`);
-    await execAsync(`mc alias set ${MINIO_CONFIG.alias} http://${MINIO_CONFIG.host} ${MINIO_CONFIG.username} ${MINIO_CONFIG.password}`);
+    await execAsync(`mc alias set ${env.MINIO_ALIAS} http://${env.MINIO_DOMAIN} ${env.MINIO_ROOT_USER} ${env.MINIO_ROOT_PASSWORD}`);
 
-    const downloadCommand = `mc cp "${MINIO_CONFIG.alias}/${minioObjectPath}" "${tempFilePath}"`;
+    const downloadCommand = `mc cp "${env.MINIO_ALIAS}/${minioObjectPath}" "${tempFilePath}"`;
     await execAsync(downloadCommand);
 
     if (fs.existsSync(tempFilePath)) {

@@ -125,7 +125,26 @@ export const env = cleanEnv(process.env, {
   MOSIP_MACHINE_ID: str({
     devDefault: "10004",
   }),
+  // MinIO configuration
+  MINIO_ALIAS: str({
+    devDefault: "opencrvs-minio",
+    desc: "MinIO alias for mc command",
+  }),
+  MINIO_DOMAIN: str({
+    devDefault: "localhost:3535",
+    desc: "MinIO host and port",
+  }),
+  MINIO_ROOT_USER: str({
+    devDefault: "minioadmin",
+    desc: "MinIO username",
+  }),
+  MINIO_ROOT_PASSWORD: str({
+    devDefault: "minioadmin",
+    desc: "MinIO password",
+  }),
 });
+
+
 
 export const MOSIP_VERIFIABLE_CREDENTIAL_ALLOWED_URLS =
   env.MOSIP_VERIFIABLE_CREDENTIAL_ALLOWLIST.split(",");

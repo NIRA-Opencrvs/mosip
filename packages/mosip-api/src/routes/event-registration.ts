@@ -25,7 +25,7 @@ export const registrationEventHandler = async (
   if (birthCertificateNumber) {
     const transactionId = generateTransactionId();
 
-    request.log.info({ transactionId }, "Event ID");
+    // request.log.info({ transactionId }, "Event ID");
 
     // insertTransaction(transactionId, token, birthCertificateNumber);
 

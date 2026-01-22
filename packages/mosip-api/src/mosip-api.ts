@@ -32,9 +32,6 @@ export type AuthType = "PACKET" | "WEBSUB";
 
 const execAsync = promisify(exec);
 
-// MinIO configuration
-
-
 async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer | null> {
   try {
     const minioObjectPath = documentPath.startsWith('/') ? documentPath.slice(1) : documentPath;
@@ -313,7 +310,9 @@ export const postBirthRecord = async ({
   const ageInMonths = getAgeInMonths(dob);
   const birthCertificateNumber = requestFields.birthCertificateNumber;
   if (ageInMonths < 9) {
-    insertTransaction(event.id, event.token, birthCertificateNumber);
+    const registrationId = event.trackingId + '-' + event.id;
+    console.log({ registrationId }, "Event ID");
+    insertTransaction(registrationId, event.token, birthCertificateNumber);
 
     const { documents, ...newRequestBody } = requestFields;
     const requestBody = JSON.stringify(
@@ -322,7 +321,7 @@ export const postBirthRecord = async ({
         version: "string",
         requesttime: new Date().toISOString(),
         request: {
-          id: event.id,
+          id: registrationId,
           refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
           offlineMode: false,
           process: "CRVS_NEW",
@@ -362,7 +361,7 @@ export const postBirthRecord = async ({
         requesttime: new Date().toISOString(),
         version: "v1",
         request: {
-          registrationId: event.id,
+          registrationId: registrationId,
           process: "CRVS_NEW",
           source: "OPENCRVS",
           additionalInfoReqId: "",

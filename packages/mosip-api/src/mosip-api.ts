@@ -206,10 +206,10 @@ async function uploadDocumentToMosip(
     }
 
     const boundary = '----formdata-' + Math.random().toString(36).substring(2, 15);
-    
+
     const formDataStart = `--${boundary}\r\nContent-Disposition: form-data; name="Document request"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(documentRequest)}\r\n--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${documentField.originalName}"\r\nContent-Type: application/octet-stream\r\n\r\n`;
     const formDataEnd = `\r\n--${boundary}--\r\n`;
-    
+
     const fullFormData = Buffer.concat([
       Buffer.from(formDataStart, 'utf8'),
       fileBuffer,
@@ -234,7 +234,7 @@ async function uploadDocumentToMosip(
     }
 
     const result = await response.json();
-    
+
     console.log(`Successfully uploaded document ${documentField.originalName}:`, result);
 
   } catch (error) {
@@ -254,7 +254,7 @@ async function extractDocumentFields(requestFields: any): Promise<DocumentField[
         let docType = docData.documentType;
         const docPath = docData.path;
         const docOriginalName = docData.originalName;
-        
+
         if (typeof docType === 'string' && docType.startsWith('[{') && docType.endsWith('}]')) {
           try {
             const parsed = JSON.parse(docType);
@@ -402,7 +402,8 @@ export const postBirthRecord = async ({
     const identity: Record<string, any> = {
       IDSchemaVersion: 8.4,
       userService: 'NEW',
-      userServiceType: [{ language: 'eng', value: 'CRVS' }]
+      userServiceType: [{ language: 'eng', value: 'CRVS' }],
+      trackingId: [{ language: 'eng', value: event.trackingId }]
     };
     const applicantLocationCodes = await processLocationHierarchy(requestFields);
 
@@ -462,7 +463,7 @@ export const postBirthRecord = async ({
         requiredFields: ["givenName", "surname", "dateOfBirth", "gender"]
       }
     };
-  
+
     // const IDA_AUTH_DOMAIN_URI = "http://localhost:9091";
     const SPRING_SERVICE_URL = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg`;
 
@@ -480,7 +481,7 @@ export const postBirthRecord = async ({
     try {
       createData = rawResponseText ? JSON.parse(rawResponseText) : rawResponseText;
     } catch (e) {
-      throw error("Parsing error exception: ",e);
+      throw error("Parsing error exception: ", e);
     }
     const preRegId = createData?.response?.preRegistrationId;
 

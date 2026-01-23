@@ -552,9 +552,59 @@ export const postBirthRecord = async ({
           console.error(`Failed to upload document ${document.originalName}:`, error);
         }
       }
+      try {
+        const surname = pickFirstString(requestFields.surname) || '';
+        const emailID = pickFirstString(requestFields.email) || '';
+        const mobNum = pickFirstString(requestFields.phoneNumber) || '';
+
+        const notificationRequestDTO = {
+          id: "mosip.pre-registration.notification.notify",
+          request: {
+            eng: {
+              name: surname,
+              preRegistrationId: preRegId,
+              appointmentDate: "2028-10-01",
+              appointmentTime: "09:30 AM",
+              mobNum: mobNum,
+              emailID: emailID,
+              additionalRecipient: false,
+              isBatch: false,
+              userService: "NEW"
+            }
+          },
+          version: "1.0",
+          requesttime: new Date().toISOString()
+        };
+
+        const notificationUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/notification`;
+        const formData = new FormData();
+        formData.append('NotificationRequestDTO', JSON.stringify(notificationRequestDTO));
+        formData.append('langCode', 'eng');
+
+
+        const notificationRes = await fetch(notificationUrl, {
+          method: 'POST',
+          headers: {
+            Cookie: `Authorization=${authToken};`,
+          },
+          body: formData,
+
+        });
+
+
+        if (!notificationRes.ok) {
+          console.error(`Failed to send notification: ${notificationRes.status} ${await notificationRes.text()}`);
+        } else {
+          const notificationResult = await notificationRes.json();
+          console.log("Notification sent successfully:", notificationResult);
+        }
+      } catch (error) {
+        console.error("Error sending notification:", error);
+      }
     } else {
       console.warn("Pre-registration ID not available, skipping document upload");
     }
+
   }
 };
 

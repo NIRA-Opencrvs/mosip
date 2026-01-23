@@ -577,28 +577,20 @@ export const postBirthRecord = async ({
         };
 
         const notificationUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/notification`;
+        const formData = new FormData();
+        formData.append('NotificationRequestDTO', JSON.stringify(notificationRequestDTO));
+        formData.append('langCode', 'eng');
 
-        const boundary = '----formdata-' + Math.random().toString(36).substring(2, 15);
-        const formDataParts = [
-          `--${boundary}`,
-          `Content-Disposition: form-data; name="NotificationRequestDTO"`,
-          ``,
-          JSON.stringify(notificationRequestDTO),
-          `--${boundary}`,
-          `Content-Disposition: form-data; name="langCode"`,
-          ``,
-          `eng`,
-          `--${boundary}--`
-        ].join('\r\n');
 
         const notificationRes = await fetch(notificationUrl, {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": `multipart/form-data; boundary=${boundary}`,
             Cookie: `Authorization=${authToken};`,
           },
-          body: formDataParts,
+          body: formData,
+
         });
+
 
         if (!notificationRes.ok) {
           console.error(`Failed to send notification: ${notificationRes.status} ${await notificationRes.text()}`);
@@ -612,7 +604,7 @@ export const postBirthRecord = async ({
     } else {
       console.warn("Pre-registration ID not available, skipping document upload");
     }
-    
+
   }
 };
 

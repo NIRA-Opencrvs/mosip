@@ -119,6 +119,27 @@ export async function getMosipAuthToken(authType: AuthType) {
 }
 
 function getAgeInMonths(dateOfBirth: string): number {
+  // Parse DD/MM/YYYY format
+  const parts = dateOfBirth.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; 
+    const year = parseInt(parts[2], 10);
+    const dob = new Date(year, month, day);
+    
+    const now = new Date();
+    const years = now.getFullYear() - dob.getFullYear();
+    const months = now.getMonth() - dob.getMonth();
+    const days = now.getDate() - dob.getDate();
+    
+    let totalMonths = years * 12 + months;
+    if (days < 0) {
+      totalMonths--;
+    }
+    
+    return totalMonths;
+  }
+  
   const dob = new Date(dateOfBirth);
   const now = new Date();
   const years = now.getFullYear() - dob.getFullYear();
@@ -399,9 +420,18 @@ export const postBirthRecord = async ({
       );
     }
   } else {
+    let userServiceValue = 'NEW';
+    const userServiceTypeField = requestFields.userServiceType;
+    if (userServiceTypeField) {
+      const extractedServiceType = pickFirstString(userServiceTypeField);
+      if (extractedServiceType === 'Alien New Registration') {
+        userServiceValue = 'ALIENNEW';
+      }
+    }
+
     const identity: Record<string, any> = {
       IDSchemaVersion: 8.4,
-      userService: 'NEW',
+      userService: userServiceValue,
       userServiceType: [{ language: 'eng', value: 'CRVS' }],
       trackingId: [{ language: 'eng', value: event.trackingId }]
     };

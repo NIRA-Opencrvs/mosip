@@ -16,7 +16,9 @@ import {
   findCodeForFieldValue,
   pickFirstString,
   isLangArrayString,
-  processLocationHierarchy,
+  processApplicantLocationHierarchy,
+  processFatherLocationHierarchy,
+  processMotherLocationHierarchy
 } from "./dynamic-fields";
 import { error } from "console";
 import { insertTransaction } from "./database";
@@ -432,11 +434,12 @@ export const postBirthRecord = async ({
     const identity: Record<string, any> = {
       IDSchemaVersion: 8.4,
       userService: userServiceValue,
-      userServiceType: [{ language: 'eng', value: 'CRVS' }],
+      userServiceType: [{ language: 'eng', value: 'CBBI' }],
       trackingId: [{ language: 'eng', value: event.trackingId }]
     };
-    const applicantLocationCodes = await processLocationHierarchy(requestFields);
-
+    const applicantLocationCodes = await processApplicantLocationHierarchy(requestFields);
+    const fatherLocationCodes = await processFatherLocationHierarchy(requestFields);
+    const motherLocationCodes = await processMotherLocationHierarchy(requestFields);
     for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
       if (fieldValue == null || fieldValue === '') continue;
 
@@ -479,6 +482,38 @@ export const postBirthRecord = async ({
     }
     if (applicantLocationCodes.villageCode) {
       identity['applicantPlaceOfBirthVillage'] = [{ language: 'eng', value: applicantLocationCodes.villageCode }];
+    }
+    //father location
+    if (fatherLocationCodes.districtCode) {
+      identity['fatherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: fatherLocationCodes.districtCode }];
+    }
+    if (fatherLocationCodes.countyCode) {
+      identity['fatherPlaceOfResidenceCounty'] = [{ language: 'eng', value: fatherLocationCodes.countyCode }];
+    }
+    if (fatherLocationCodes.subCountyCode) {
+      identity['fatherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: fatherLocationCodes.subCountyCode }];
+    }
+    if (fatherLocationCodes.parishCode) {
+      identity['fatherPlaceOfResidenceParish'] = [{ language: 'eng', value: fatherLocationCodes.parishCode }];
+    }
+    if (fatherLocationCodes.villageCode) {
+      identity['fatherPlaceOfResidenceVillage'] = [{ language: 'eng', value: fatherLocationCodes.villageCode }];
+    }
+   //mother location
+    if(motherLocationCodes.districtCode) {
+      identity['motherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: motherLocationCodes.districtCode }];
+    }
+    if(motherLocationCodes.countyCode) {
+      identity['motherPlaceOfResidenceCounty'] = [{ language: 'eng', value: motherLocationCodes.countyCode }];
+    }
+    if(motherLocationCodes.subCountyCode) {
+      identity['motherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: motherLocationCodes.subCountyCode }];
+    }
+    if(motherLocationCodes.parishCode) {
+      identity['motherPlaceOfResidenceParish'] = [{ language: 'eng', value: motherLocationCodes.parishCode }];
+    }
+    if(motherLocationCodes.villageCode) {
+      identity['motherPlaceOfResidenceVillage'] = [{ language: 'eng', value: motherLocationCodes.villageCode }];
     }
 
     const springPayload = {

@@ -147,7 +147,7 @@ const findLocationByCode = (code: string, locationType: string, locationData: an
 };
 
 
-export const processLocationHierarchy = async (requestFields: any): Promise<{
+export const processApplicantLocationHierarchy = async (requestFields: any): Promise<{
   districtCode?: string;
   countyCode?: string;
   subCountyCode?: string;
@@ -160,6 +160,106 @@ export const processLocationHierarchy = async (requestFields: any): Promise<{
     const locationData = loadLocationData();
     const residenceStatus = pickFirstString(requestFields.appBirCountryUGA);
     const villageValue = pickFirstString(requestFields.applicantPlaceOfBirthVillage);
+    if (residenceStatus !== 'UGA') {
+      return result;
+    }
+    
+    if (!villageValue) {
+      return result;
+    }
+    const village = findLocationByName(villageValue, 'Village', locationData);
+
+    if (!village) {
+      return result;
+    }
+    
+    result.villageCode = village.code;
+    const parish = findLocationByCode(village.parent_loc_code, 'Parish', locationData);
+    if (parish) {
+      result.parishCode = parish.code;
+      const subCounty = findLocationByCode(parish.parent_loc_code, 'SubCounty', locationData);
+      if (subCounty) {
+        result.subCountyCode = subCounty.code;
+        const county = findLocationByCode(subCounty.parent_loc_code, 'County', locationData);
+        if (county) {
+          result.countyCode = county.code;
+          const district = findLocationByCode(county.parent_loc_code, 'District', locationData);
+          if (district) {
+            result.districtCode = district.code;
+          }
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('[Location Hierarchy] Error processing location hierarchy:', error);
+  }
+  return result;
+};
+
+export const processFatherLocationHierarchy = async (requestFields: any): Promise<{
+  districtCode?: string;
+  countyCode?: string;
+  subCountyCode?: string;
+  parishCode?: string;
+  villageCode?: string;
+}> => {
+  const result: any = {};
+  
+  try {
+    const locationData = loadLocationData();
+    const residenceStatus = pickFirstString(requestFields.fatResCountryUGA);
+    const villageValue = pickFirstString(requestFields.fatherPlaceOfResidenceVillage);
+    if (residenceStatus !== 'UGA') {
+      return result;
+    }
+    
+    if (!villageValue) {
+      return result;
+    }
+    const village = findLocationByName(villageValue, 'Village', locationData);
+
+    if (!village) {
+      return result;
+    }
+    
+    result.villageCode = village.code;
+    const parish = findLocationByCode(village.parent_loc_code, 'Parish', locationData);
+    if (parish) {
+      result.parishCode = parish.code;
+      const subCounty = findLocationByCode(parish.parent_loc_code, 'SubCounty', locationData);
+      if (subCounty) {
+        result.subCountyCode = subCounty.code;
+        const county = findLocationByCode(subCounty.parent_loc_code, 'County', locationData);
+        if (county) {
+          result.countyCode = county.code;
+          const district = findLocationByCode(county.parent_loc_code, 'District', locationData);
+          if (district) {
+            result.districtCode = district.code;
+          }
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('[Location Hierarchy] Error processing location hierarchy:', error);
+  }
+  return result;
+};
+
+export const processMotherLocationHierarchy = async (requestFields: any): Promise<{
+  districtCode?: string;
+  countyCode?: string;
+  subCountyCode?: string;
+  parishCode?: string;
+  villageCode?: string;
+}> => {
+  const result: any = {};
+  
+  try {
+    const locationData = loadLocationData();
+    const residenceStatus = pickFirstString(requestFields.motResCountryUGA);
+    const villageValue = pickFirstString(requestFields.motherPlaceOfResidenceVillage);
     if (residenceStatus !== 'UGA') {
       return result;
     }

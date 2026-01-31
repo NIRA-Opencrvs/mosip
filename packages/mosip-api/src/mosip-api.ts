@@ -213,10 +213,11 @@ const getDocumentMapping = (documentType: string): { docCatCode: string; docTypC
     'NATIONAL_ID': { docCatCode: 'POI', docTypCode: 'DOC002' },
     'ALIEN_ID': { docCatCode: 'POI', docTypCode: 'DOC003' },
     'REFUGEE_ID': { docCatCode: 'POI', docTypCode: 'DOC004' },
-    'CERTIFICATE_OF_BIRTH': { docCatCode: 'POBC', docTypCode: 'DOC028' },
-    'BIRTH_CERTIFICATE': { docCatCode: 'POBC', docTypCode: 'DOC028' },
-    'LC_RECOMMENDATION_LETTER': { docCatCode: 'POB', docTypCode: 'DOC029' },
-    'MISSION_LETTER': { docCatCode: 'POB', docTypCode: 'DOC030' },
+    'Birth Notification': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'Discharge Form': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'Immunisation Card': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'LC_RECOMMENDATION_LETTER': { docCatCode: 'POBC', docTypCode: 'DOC029' },
+    'MISSION_LETTER': { docCatCode: 'POBC', docTypCode: 'DOC030' },
     'POLICE_REPORT': { docCatCode: 'POL', docTypCode: 'DOC031' },
     'STATUTORY_DECLARATION': { docCatCode: 'POL', docTypCode: 'DOC032' },
     'COURT_ORDER': { docCatCode: 'POL', docTypCode: 'DOC033' },
@@ -357,6 +358,110 @@ async function extractDocumentFields(requestFields: any): Promise<DocumentField[
   return documentFields;
 }
 
+function getDocumentCategoryMapping(documentType: string): string {
+  const typeMapping: Record<string, string> = {
+    'NATIONAL_ID': 'proofOfNIDPBR',
+    'PASSPORT': 'proofOfPassport',
+    'ALIEN_ID': 'proofOfNIDPBR',
+    'REFUGEE_ID': 'proofOfNIDPBR',
+    'Birth Notification': 'proofOfBirthCert',
+    'Discharge Form': 'proofOfBirthCert',
+    'Immunisation Card': 'proofOfBirthCert',
+    'LC_RECOMMENDATION_LETTER': 'proofOfCLEI',
+    'MISSION_LETTER': 'proofOfCLEI',
+    'POLICE_REPORT': 'proofOfPOLREP',
+    'STATUTORY_DECLARATION': 'proofOfStatutory',
+    'COURT_ORDER': 'proofOfPOLREP',
+    'AFFIDAVIT': 'proofOfStatutory',
+    'CITIZENSHIP_CERTIFICATE': 'proofOfCbyNat',
+    'NATURALIZATION_CERTIFICATE': 'proofOfNatCert',
+    'CERTIFICATE_OF_DUAL_CITIZENSHIP': 'proofOfCbyDual',
+    'CERTIFICATE_OF_CITIZENSHIP_BY_REGISTRATION': 'proofOfCbyReg',
+    'OTHER': 'proofOfFAll'
+  };
+
+  return typeMapping[documentType] || 'proofOfFAll';
+}
+
+async function extractAndProcessDocumentsForPacket(
+  documents: any,
+  authToken: string
+): Promise<Array<{ category: string; value: string }>> {
+  const processedDocuments: Array<{ category: string; value: string }> = [];
+  const categoryMap: Map<string, { category: string; value: string }> = new Map();
+
+  if (!documents || typeof documents !== 'object') {
+    console.log('No documents to process for packet');
+    return processedDocuments;
+  }
+
+  for (const [documentKey, documentData] of Object.entries(documents)) {
+    if (documentData && typeof documentData === 'object') {
+      const docData = documentData as any;
+      let docType = docData.documentType;
+      const docPath = docData.path;
+
+      if (typeof docType === 'string' && docType.startsWith('[{') && docType.endsWith('}]')) {
+        try {
+          const parsed = JSON.parse(docType);
+          docType = Array.isArray(parsed) && parsed.length > 0 ? parsed[0].value : docType;
+        } catch (e) {
+          console.warn(`Failed to parse document type for ${documentKey}:`, e);
+        }
+      }
+
+      if (!docType || !docPath) {
+        console.warn(`Incomplete document data for ${documentKey}:`, { docType, docPath });
+        continue;
+      }
+
+      const category = getDocumentCategoryMapping(String(docType));
+
+      if (categoryMap.has(category)) {
+        console.log(`Skipping duplicate document for category ${category}: ${documentKey}`);
+        continue;
+      }
+
+      try {
+        // Download document from MinIO
+        let fileBuffer: Buffer;
+        if (docPath.startsWith('/ocrvs/')) {
+          const minioBuffer = await downloadDocumentFromMinIO(docPath);
+          if (minioBuffer) {
+            fileBuffer = minioBuffer;
+            console.log(`Document fetched from MinIO: ${documentKey} (${fileBuffer.length} bytes)`);
+          } else {
+            console.warn(`Failed to fetch document from MinIO: ${docPath}`);
+            continue;
+          }
+        } else {
+          if (!existsSync(docPath)) {
+            console.warn(`Document file not found: ${docPath}`);
+            continue;
+          }
+          fileBuffer = readFileSync(docPath);
+        }
+
+        // Convert to base64
+        const base64Content = fileBuffer.toString('base64');
+
+        // Store in category map to ensure uniqueness
+        categoryMap.set(category, {
+          category: category,
+          value: base64Content
+        });
+
+        console.log(`Processed document ${documentKey} as category ${category}`);
+      } catch (error) {
+        console.error(`Error processing document ${documentKey}:`, error);
+      }
+    }
+  }
+
+  // Convert map values to array
+  return Array.from(categoryMap.values());
+}
+
 export const postBirthRecord = async ({
   event,
   requestFields,
@@ -391,6 +496,14 @@ export const postBirthRecord = async ({
     insertTransaction(registrationId, event.token, birthCertificateNumber);
 
     const { documents, ...newRequestBody } = requestFields;
+    
+    const processedDocuments = await extractAndProcessDocumentsForPacket(documents, authToken);
+    
+    const fieldsWithDocuments = {
+      ...newRequestBody,
+      documents: processedDocuments
+    };
+    
     const requestBody = JSON.stringify(
       {
         id: "string",
@@ -403,7 +516,7 @@ export const postBirthRecord = async ({
           process: "CRVS_NEW",
           source: "OPENCRVS",
           schemaVersion: schemaVersionString,
-          fields: newRequestBody,
+          fields: fieldsWithDocuments,
           metaInfo: metaInfo,
           audits: Array.of(audit),
           schemaJson: schemaJson,

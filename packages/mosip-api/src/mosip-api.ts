@@ -120,6 +120,58 @@ export async function getMosipAuthToken(authType: AuthType) {
   return token;
 }
 
+interface IDSchemaResponse {
+  id: string | null;
+  version: string | null;
+  responsetime: string;
+  metadata: any;
+  response: {
+    idVersion: number;
+    schema: Array<any>;
+  };
+}
+
+/**
+ * Fetches the latest ID Schema version from MOSIP
+ * @param authToken - The MOSIP authentication token
+ * @returns The ID schema version as a number
+ */
+export async function getLatestIDSchemaVersion(authToken: string): Promise<{ version: number; versionString: string }> {
+  try {
+    const ID_SCHEMA_URL = `${env.IDA_AUTH_DOMAIN_URI}/v1/masterdata/idschema/latest`;
+    const response = await fetch(ID_SCHEMA_URL, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `Authorization=${authToken};`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new MOSIPError(
+        `Failed to fetch ID schema version. Response: ${response.status}, response: ${await response.text()}`,
+      );
+    }
+
+    const data: IDSchemaResponse = await response.json();
+    
+    if (!data.response || data.response.idVersion === undefined) {
+      throw new MOSIPError(
+        `Invalid ID schema response: missing idVersion in response`,
+      );
+    }
+
+    const version = data.response.idVersion;
+    const versionString = String(version);
+    return { version, versionString };
+  } catch (error) {
+    console.error("Error fetching ID schema version:", error);
+    // Fallback to default version if API fails
+    console.warn("Falling back to default ID schema version 8.4");
+    return { version: 8.4, versionString: "8.4" };
+  }
+}
+
 function getAgeInMonths(dateOfBirth: string): number {
   // Parse DD/MM/YYYY format
   const parts = dateOfBirth.split('/');
@@ -323,6 +375,7 @@ export const postBirthRecord = async ({
   notification: MosipInteropPayload["notification"];
 }) => {
   const authToken = await getMosipAuthToken("PACKET");
+  const { versionString: schemaVersionString, version: idSchemaVersion } = await getLatestIDSchemaVersion(authToken);
 
   const documentFields = await extractDocumentFields(requestFields);
 
@@ -349,7 +402,7 @@ export const postBirthRecord = async ({
           offlineMode: false,
           process: "CRVS_NEW",
           source: "OPENCRVS",
-          schemaVersion: "8.400",
+          schemaVersion: schemaVersionString,
           fields: newRequestBody,
           metaInfo: metaInfo,
           audits: Array.of(audit),
@@ -432,7 +485,7 @@ export const postBirthRecord = async ({
     }
 
     const identity: Record<string, any> = {
-      IDSchemaVersion: 8.4,
+      IDSchemaVersion: idSchemaVersion,
       userService: userServiceValue,
       userServiceType: [{ language: 'eng', value: 'CBBI' }],
       trackingId: [{ language: 'eng', value: event.trackingId }]

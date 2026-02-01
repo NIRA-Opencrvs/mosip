@@ -175,30 +175,39 @@ export async function getLatestIDSchemaVersion(authToken: string): Promise<{ ver
 function getAgeInMonths(dateOfBirth: string): number {
   // Parse DD/MM/YYYY format
   const parts = dateOfBirth.split('/');
+  let dob: Date;
+  
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; 
     const year = parseInt(parts[2], 10);
-    const dob = new Date(year, month, day);
-    
-    const now = new Date();
-    const years = now.getFullYear() - dob.getFullYear();
-    const months = now.getMonth() - dob.getMonth();
-    const days = now.getDate() - dob.getDate();
-    
-    let totalMonths = years * 12 + months;
-    if (days < 0) {
-      totalMonths--;
-    }
-    
-    return totalMonths;
+    dob = new Date(year, month, day);
+  } else {
+    dob = new Date(dateOfBirth);
   }
   
-  const dob = new Date(dateOfBirth);
   const now = new Date();
+  
+  // Calculate the date that would be exactly 9 months after birth (at the end of that day)
+  const nineMonthsAfterBirth = new Date(dob);
+  nineMonthsAfterBirth.setMonth(nineMonthsAfterBirth.getMonth() + 9);
+  nineMonthsAfterBirth.setHours(23, 59, 59, 999); // End of the 9-month day
+  
+  // If current date is after the 9-month mark, return 10 (to trigger else condition)
+  if (now > nineMonthsAfterBirth) {
+    return 10; // More than 9 months
+  }
+  
+  // Calculate exact months for cases within 9 months
   const years = now.getFullYear() - dob.getFullYear();
   const months = now.getMonth() - dob.getMonth();
-  const totalMonths = years * 12 + months;
+  const days = now.getDate() - dob.getDate();
+  
+  let totalMonths = years * 12 + months;
+  if (days < 0) {
+    totalMonths--;
+  }
+  
   return totalMonths;
 }
 
@@ -210,24 +219,24 @@ interface DocumentField {
 const getDocumentMapping = (documentType: string): { docCatCode: string; docTypCode: string } => {
   const typeMapping: Record<string, { docCatCode: string; docTypCode: string }> = {
     'PASSPORT': { docCatCode: 'POPASS', docTypCode: 'DOC001' },
-    'NATIONAL_ID': { docCatCode: 'POI', docTypCode: 'DOC002' },
-    'ALIEN_ID': { docCatCode: 'POI', docTypCode: 'DOC003' },
-    'REFUGEE_ID': { docCatCode: 'POI', docTypCode: 'DOC004' },
+    'NATIONAL_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
+    'ALIEN_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
+    'REFUGEE_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'Birth Notification': { docCatCode: 'POBC', docTypCode: 'DOC028' },
     'Discharge Form': { docCatCode: 'POBC', docTypCode: 'DOC028' },
     'Immunisation Card': { docCatCode: 'POBC', docTypCode: 'DOC028' },
-    'LC_RECOMMENDATION_LETTER': { docCatCode: 'POBC', docTypCode: 'DOC029' },
-    'MISSION_LETTER': { docCatCode: 'POBC', docTypCode: 'DOC030' },
-    'POLICE_REPORT': { docCatCode: 'POL', docTypCode: 'DOC031' },
-    'STATUTORY_DECLARATION': { docCatCode: 'POL', docTypCode: 'DOC032' },
-    'COURT_ORDER': { docCatCode: 'POL', docTypCode: 'DOC033' },
-    'AFFIDAVIT': { docCatCode: 'POL', docTypCode: 'DOC034' },
-    'CITIZENSHIP_CERTIFICATE': { docCatCode: 'POC', docTypCode: 'DOC035' },
-    'NATURALIZATION_CERTIFICATE': { docCatCode: 'POC', docTypCode: 'DOC036' },
-    'OTHER': { docCatCode: 'POO', docTypCode: 'DOC999' }
+    'LC_RECOMMENDATION_LETTER': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'MISSION_LETTER': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'POLICE_REPORT': { docCatCode: 'POPOLREP', docTypCode: 'POLREP' },
+    'STATUTORY_DECLARATION': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
+    'COURT_ORDER': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
+    'AFFIDAVIT': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
+    'CITIZENSHIP_CERTIFICATE': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'NATURALIZATION_CERTIFICATE': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'OTHER': { docCatCode: 'POFALL', docTypCode: 'CAOR' }
   };
 
-  return typeMapping[documentType] || { docCatCode: 'POO', docTypCode: 'DOC999' };
+  return typeMapping[documentType] || { docCatCode: 'POFALL', docTypCode: 'CAOR' };
 };
 
 async function uploadDocumentToMosip(
@@ -490,7 +499,7 @@ export const postBirthRecord = async ({
 
   const ageInMonths = getAgeInMonths(dob);
   const birthCertificateNumber = requestFields.birthCertificateNumber;
-  if (ageInMonths < 9) {
+  if (ageInMonths <= 9) {
     const registrationId = event.trackingId + '-' + event.id;
     console.log({ registrationId }, "Event ID");
     insertTransaction(registrationId, event.token, birthCertificateNumber);
@@ -776,9 +785,20 @@ export const postBirthRecord = async ({
     console.log("Appointment booking response:", JSON.stringify(appointmentJson, null, 2));
 
     if (preRegId) {
+      const uploadedDocCatCodes = new Set<string>();
+      
       for (const document of documentFields) {
         try {
+          const { docCatCode } = getDocumentMapping(document.type);
+          
+          // Skip if this docCatCode has already been uploaded
+          if (uploadedDocCatCodes.has(docCatCode)) {
+            console.log(`Skipping duplicate docCatCode ${docCatCode} for document: ${document.originalName}`);
+            continue;
+          }
+          
           await uploadDocumentToMosip(preRegId, document, authToken);
+          uploadedDocCatCodes.add(docCatCode);
         } catch (error) {
           console.error(`Failed to upload document ${document.originalName}:`, error);
         }

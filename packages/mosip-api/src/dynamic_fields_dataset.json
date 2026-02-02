@@ -99,5 +99,40 @@
                 "value": "Dual Citizenship"
             }
         ]
+    },
+    {
+        "name":"motherLivingStatus",
+        "fieldVal":[
+            {
+                "code": "ALV",
+                "value": "Alive"
+            },
+            {
+                "code": "DCSD",
+                "value": "Deceased"
+            },
+            {
+                "code": "UNKN",
+                "value": "UnKnown"
+            }
+        ]
+    },
+    {
+        "name":"fatherLivingStatus",
+        "fieldVal":[
+            {
+                "code": "ALV",
+                "value": "Alive"
+            },
+            {
+                "code": "DCSD",
+                "value": "Deceased"
+            },
+            {
+                "code": "UNKN",
+                "value": "UnKnown"
+            }
+        ]
     }
+
 ]

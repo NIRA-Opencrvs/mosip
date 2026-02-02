@@ -510,7 +510,7 @@ export const postBirthRecord = async ({
     
     const fieldsWithDocuments = {
       ...newRequestBody,
-      documents: processedDocuments
+      documents: JSON.stringify(processedDocuments)
     };
     
     const requestBody = JSON.stringify(

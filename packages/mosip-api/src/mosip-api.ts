@@ -393,11 +393,10 @@ function getDocumentCategoryMapping(documentType: string): string {
 }
 
 interface MosipDocumentFormat {
-  document: string[];
+  document: number[];
   value: string;
   type: string;
   format: string;
-  refNumber: string;
 }
 
 async function extractAndProcessDocumentsForPacket(
@@ -461,18 +460,20 @@ async function extractAndProcessDocumentsForPacket(
         }
 
         // Convert to base64
-        const base64Content = fileBuffer.toString('base64');
+        // const base64Content = fileBuffer.toString('base64');
 
         // Determine file format from original name or path
         const fileExtension = path.extname(originalName || docPath).toLowerCase().replace('.', '') || 'pdf';
 
+        // Convert buffer to byte array (array of numbers)
+        const byteArray = Array.from(new Uint8Array(fileBuffer));
+
         // Store in processed documents with MOSIP expected format
         processedDocuments[category] = {
-          document: [],
-          value: base64Content,
-          type: category,
-          format: fileExtension,
-          refNumber: ""
+          document: byteArray,
+          value: category,
+          type: 'DOC' + Math.floor(100 + Math.random() * 900).toString(),
+          format: fileExtension
         };
 
         categorySet.add(category);

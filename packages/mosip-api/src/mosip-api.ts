@@ -392,12 +392,20 @@ function getDocumentCategoryMapping(documentType: string): string {
   return typeMapping[documentType] || 'proofOfFAll';
 }
 
+interface MosipDocumentFormat {
+  document: string[];
+  value: string;
+  type: string;
+  format: string;
+  refNumber: string;
+}
+
 async function extractAndProcessDocumentsForPacket(
   documents: any,
   authToken: string
-): Promise<Array<{ category: string; value: string }>> {
-  const processedDocuments: Array<{ category: string; value: string }> = [];
-  const categoryMap: Map<string, { category: string; value: string }> = new Map();
+): Promise<Record<string, MosipDocumentFormat>> {
+  const processedDocuments: Record<string, MosipDocumentFormat> = {};
+  const categorySet: Set<string> = new Set();
 
   if (!documents || typeof documents !== 'object') {
     console.log('No documents to process for packet');
@@ -409,6 +417,7 @@ async function extractAndProcessDocumentsForPacket(
       const docData = documentData as any;
       let docType = docData.documentType;
       const docPath = docData.path;
+      const originalName = docData.originalName || 'document';
 
       if (typeof docType === 'string' && docType.startsWith('[{') && docType.endsWith('}]')) {
         try {
@@ -426,7 +435,7 @@ async function extractAndProcessDocumentsForPacket(
 
       const category = getDocumentCategoryMapping(String(docType));
 
-      if (categoryMap.has(category)) {
+      if (categorySet.has(category)) {
         console.log(`Skipping duplicate document for category ${category}: ${documentKey}`);
         continue;
       }
@@ -454,12 +463,19 @@ async function extractAndProcessDocumentsForPacket(
         // Convert to base64
         const base64Content = fileBuffer.toString('base64');
 
-        // Store in category map to ensure uniqueness
-        categoryMap.set(category, {
-          category: category,
-          value: base64Content
-        });
+        // Determine file format from original name or path
+        const fileExtension = path.extname(originalName || docPath).toLowerCase().replace('.', '') || 'pdf';
 
+        // Store in processed documents with MOSIP expected format
+        processedDocuments[category] = {
+          document: [],
+          value: base64Content,
+          type: category,
+          format: fileExtension,
+          refNumber: ""
+        };
+
+        categorySet.add(category);
         console.log(`Processed document ${documentKey} as category ${category}`);
       } catch (error) {
         console.error(`Error processing document ${documentKey}:`, error);
@@ -467,8 +483,7 @@ async function extractAndProcessDocumentsForPacket(
     }
   }
 
-  // Convert map values to array
-  return Array.from(categoryMap.values());
+  return processedDocuments;
 }
 
 export const postBirthRecord = async ({
@@ -508,11 +523,6 @@ export const postBirthRecord = async ({
     
     const processedDocuments = await extractAndProcessDocumentsForPacket(documents, authToken);
     
-    const fieldsWithDocuments = {
-      ...newRequestBody,
-      documents: JSON.stringify(processedDocuments)
-    };
-    
     const requestBody = JSON.stringify(
       {
         id: "string",
@@ -525,8 +535,9 @@ export const postBirthRecord = async ({
           process: "CRVS_NEW",
           source: "OPENCRVS",
           schemaVersion: schemaVersionString,
-          fields: fieldsWithDocuments,
+          fields: newRequestBody,
           metaInfo: metaInfo,
+          documents: processedDocuments,
           audits: Array.of(audit),
           schemaJson: schemaJson,
         },

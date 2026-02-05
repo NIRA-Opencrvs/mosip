@@ -533,7 +533,7 @@ export const postBirthRecord = async ({
           id: registrationId,
           refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
           offlineMode: false,
-          process: "CRVS_NEW",
+          process: "NEW",
           source: "OPENCRVS",
           schemaVersion: schemaVersionString,
           fields: newRequestBody,

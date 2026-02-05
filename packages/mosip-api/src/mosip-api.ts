@@ -572,7 +572,7 @@ export const postBirthRecord = async ({
         version: "v1",
         request: {
           registrationId: registrationId,
-          process: "CRVS_NEW",
+          process: "NEW",
           source: "OPENCRVS",
           additionalInfoReqId: "",
           notificationInfo: {

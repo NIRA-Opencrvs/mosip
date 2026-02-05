@@ -533,7 +533,7 @@ export const postBirthRecord = async ({
           id: registrationId,
           refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
           offlineMode: false,
-          process: "NEW",
+          process: "CRVS_NEW",
           source: "OPENCRVS",
           schemaVersion: schemaVersionString,
           fields: newRequestBody,
@@ -572,7 +572,7 @@ export const postBirthRecord = async ({
         version: "v1",
         request: {
           registrationId: registrationId,
-          process: "NEW",
+          process: "CRVS_NEW",
           source: "OPENCRVS",
           additionalInfoReqId: "",
           notificationInfo: {

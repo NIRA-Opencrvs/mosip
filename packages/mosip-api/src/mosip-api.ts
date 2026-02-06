@@ -68,7 +68,11 @@ async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer |
 
 export async function getMosipAuthToken(authType: AuthType) {
   // Use different URLs based on authType
-  const response = await fetch(env.MOSIP_AUTH_URL, {
+      const authUrl = authType === "WEBSUB"
+    ? "http://localhost:20240/v1/authmanager/authenticate/clientidsecretkey"
+    : "https://api-internal.niradev1.idencode.link/v1/authmanager/authenticate/clientidsecretkey";
+    
+  const response = await fetch(authUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -533,7 +537,7 @@ export const postBirthRecord = async ({
           id: registrationId,
           refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
           offlineMode: false,
-          process: "NEW",
+          process: "CRVS_NEW",
           source: "OPENCRVS",
           schemaVersion: schemaVersionString,
           fields: newRequestBody,
@@ -572,7 +576,7 @@ export const postBirthRecord = async ({
         version: "v1",
         request: {
           registrationId: registrationId,
-          process: "NEW",
+          process: "CRVS_NEW",
           source: "OPENCRVS",
           additionalInfoReqId: "",
           notificationInfo: {
@@ -624,9 +628,9 @@ export const postBirthRecord = async ({
       userServiceType: [{ language: 'eng', value: 'CBBI' }],
       trackingId: [{ language: 'eng', value: event.trackingId }]
     };
-    const applicantLocationCodes = await processApplicantLocationHierarchy(requestFields);
-    const fatherLocationCodes = await processFatherLocationHierarchy(requestFields);
-    const motherLocationCodes = await processMotherLocationHierarchy(requestFields);
+    const applicantLocationCodes = await processApplicantLocationHierarchy(requestFields, authToken, env.IDA_AUTH_DOMAIN_URI);
+    const fatherLocationCodes = await processFatherLocationHierarchy(requestFields, authToken, env.IDA_AUTH_DOMAIN_URI);
+    const motherLocationCodes = await processMotherLocationHierarchy(requestFields, authToken, env.IDA_AUTH_DOMAIN_URI);
     for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
       if (fieldValue == null || fieldValue === '') continue;
 
@@ -702,6 +706,8 @@ export const postBirthRecord = async ({
     if(motherLocationCodes.villageCode) {
       identity['motherPlaceOfResidenceVillage'] = [{ language: 'eng', value: motherLocationCodes.villageCode }];
     }
+
+    console.log("Constructed identity object for MOSIP pre-registration:", identity);
 
     const springPayload = {
       id: "mosip.pre-registration.demographic.create",

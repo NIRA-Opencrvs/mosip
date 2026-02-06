@@ -222,19 +222,22 @@ const getDocumentMapping = (documentType: string): { docCatCode: string; docTypC
     'NATIONAL_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'ALIEN_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'REFUGEE_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
-    'Birth Notification': { docCatCode: 'POBC', docTypCode: 'DOC028' },
-    'Discharge Form': { docCatCode: 'POBC', docTypCode: 'DOC028' },
-    'Immunisation Card': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'BIRTH_NOTIFICATION': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'CERTIFICATE_OF_BIRTH': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'DISCHARGE_FORM': { docCatCode: 'POBC', docTypCode: 'DOC028' },
+    'IMMUNISATION_CARD': { docCatCode: 'POBC', docTypCode: 'DOC028' },
     'LC_RECOMMENDATION_LETTER': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
-    'MISSION_LETTER': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'MISSION_LETTER': { docCatCode: 'POBC', docTypCode: 'DOC028' },
     'POLICE_REPORT': { docCatCode: 'POPOLREP', docTypCode: 'POLREP' },
-    'STATUTORY_DECLARATION': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
-    'COURT_ORDER': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
-    'AFFIDAVIT': { docCatCode: 'POFALL', docTypCode: 'CAOR' },
-    'CITIZENSHIP_CERTIFICATE': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
-    'NATURALIZATION_CERTIFICATE': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'STATUTORY_DECLARATION': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'COURT_ORDER': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'AFFIDAVIT': { docCatCode: 'POCLEI', docTypCode: 'CLEIPLD' },
+    'PARENTS_UGANDAN_PASSPORT_OR_NATIONAL_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
+    'BIRTH_CERTIFICATE_OF_CHILD': { docCatCode: 'PONPBR', docTypCode: 'GID' },
+    'STATUTORY_DECLARATION_FROM_PARENTS': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'OTHER': { docCatCode: 'POFALL', docTypCode: 'CAOR' }
   };
+ 
 
   return typeMapping[documentType] || { docCatCode: 'POFALL', docTypCode: 'CAOR' };
 };

@@ -24,6 +24,7 @@ import {
   getAllTransactionsHandler,
 } from "./routes/debug-sqlite";
 import { verifyHandler, VerifySchema } from "./routes/verify";
+import { initializeIDSchema } from "./mosip-api";
 
 const envToLogger = {
   development: {
@@ -190,6 +191,15 @@ async function run() {
 
   wasCreated && app.log.info("SQLite token storage created 🚀✅ ");
   wasConnected && app.log.info("SQLite token storage connected ✅");
+
+  // Initialize ID Schema cache at startup
+  try {
+    await initializeIDSchema();
+    app.log.info("ID Schema initialized and cached ✅");
+  } catch (error) {
+    app.log.error("Failed to initialize ID Schema:", error);
+    throw error;
+  }
 
   await app.ready();
   await app.listen({

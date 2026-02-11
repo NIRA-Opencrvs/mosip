@@ -51,9 +51,10 @@ export const credentialIssuedHandler = async (
     //   allowList: MOSIP_VERIFIABLE_CREDENTIAL_ALLOWED_URLS,
     // });
 
-    const transactionId = verifiableCredential.credentialSubject.id
-      .split("/")
-      .pop()!;
+    // const transactionId = verifiableCredential.credentialSubject.id
+    //   .split("/")
+    //   .pop()!;
+    const transactionId = request.body.event.data.registrationId;
 
     const { token, registrationNumber } =
       getTransactionAndDiscard(transactionId);

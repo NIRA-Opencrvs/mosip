@@ -133,6 +133,28 @@
                 "value": "UnKnown"
             }
         ]
+    },
+        {
+        "name":"declarant",
+        "fieldVal":[
+            {
+                "code": "Father",
+                "value": "FATHER"
+            },
+            {
+                "code": "Mother",
+                "value": "MOTHER"
+            },
+            {
+                "code": "Brother",
+                "value": "BIOLOGICAL_BROTHER"
+            },
+             {
+                "code": "Sister",
+                "value": "BIOLOGICAL_SISTER"
+            }
+        ]
     }
+
 
 ]

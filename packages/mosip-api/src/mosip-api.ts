@@ -34,6 +34,40 @@ export type AuthType = "PACKET" | "WEBSUB";
 
 const execAsync = promisify(exec);
 
+let cachedIDSchema: {
+  version: number;
+  versionString: string;
+  schemaJson: string;
+} | null = null;
+
+/**
+ * Initialize and cache the ID Schema version at service startup
+ */
+export async function initializeIDSchema(): Promise<void> {
+  try {
+    const authToken = await getMosipAuthToken("PACKET");
+    cachedIDSchema = await getLatestIDSchemaVersion(authToken);
+    console.log(`ID Schema initialized and cached: version ${cachedIDSchema.versionString}`);
+  } catch (error) {
+    console.error("Failed to initialize ID Schema:", error);
+    throw error;
+  }
+}
+
+export function getCachedIDSchema(): {
+  version: number;
+  versionString: string;
+  schemaJson: string;
+} {
+  if (!cachedIDSchema) {
+    throw new MOSIPError(
+      "ID Schema not initialized. Please call initializeIDSchema() at service startup."
+    );
+  }
+  return cachedIDSchema;
+}
+
+
 async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer | null> {
   try {
     const minioObjectPath = documentPath.startsWith('/') ? documentPath.slice(1) : documentPath;
@@ -531,7 +565,8 @@ export const postBirthRecord = async ({
 }) => {
   const authToken = await getMosipAuthToken("PACKET");
   
-  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = await getLatestIDSchemaVersion(authToken);
+ 
+  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
 
   const documentFields = await extractDocumentFields(requestFields);
 
@@ -572,7 +607,7 @@ export const postBirthRecord = async ({
       null,
       2,
     );
-
+  
     const createPacketResponse = await fetch(env.MOSIP_CREATE_PACKET_URL, {
       method: "PUT",
       body: requestBody,

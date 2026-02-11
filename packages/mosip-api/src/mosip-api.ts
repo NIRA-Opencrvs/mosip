@@ -127,16 +127,20 @@ interface IDSchemaResponse {
   metadata: any;
   response: {
     idVersion: number;
-    schema: Array<any>;
+    schemaJson: string;
   };
 }
 
 /**
- * Fetches the latest ID Schema version from MOSIP
+ * Fetches the latest ID Schema version and schema JSON from MOSIP
  * @param authToken - The MOSIP authentication token
- * @returns The ID schema version as a number
+ * @returns Object containing version info and schema JSON string
  */
-export async function getLatestIDSchemaVersion(authToken: string): Promise<{ version: number; versionString: string }> {
+export async function getLatestIDSchemaVersion(authToken: string): Promise<{ 
+  version: number; 
+  versionString: string; 
+  schemaJson: string;
+}> {
   try {
     const ID_SCHEMA_URL = `${env.IDA_AUTH_DOMAIN_URI}/v1/masterdata/idschema/latest`;
     const response = await fetch(ID_SCHEMA_URL, {
@@ -149,7 +153,7 @@ export async function getLatestIDSchemaVersion(authToken: string): Promise<{ ver
 
     if (!response.ok) {
       throw new MOSIPError(
-        `Failed to fetch ID schema version. Response: ${response.status}, response: ${await response.text()}`,
+        `Failed to fetch ID schema. Response: ${response.status}, response: ${await response.text()}`,
       );
     }
 
@@ -161,14 +165,30 @@ export async function getLatestIDSchemaVersion(authToken: string): Promise<{ ver
       );
     }
 
+    if (!data.response.schemaJson || typeof data.response.schemaJson !== 'string') {
+      throw new MOSIPError(
+        `Invalid ID schema response: missing or invalid schema JSON string`,
+      );
+    }
+
     const version = data.response.idVersion;
     const versionString = String(version);
-    return { version, versionString };
+    const schemaJson = data.response.schemaJson;
+    
+    // Validate that the schema is parseable JSON
+    try {
+      JSON.parse(schemaJson);
+    } catch (parseError) {
+      throw new MOSIPError(
+        `Failed to parse schema JSON: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+      );
+    }
+    return { version, versionString, schemaJson };
   } catch (error) {
-    console.error("Error fetching ID schema version:", error);
-    // Fallback to default version if API fails
-    console.warn("Falling back to default ID schema version 8.4");
-    return { version: 8.4, versionString: "8.4" };
+    console.error("Error fetching ID schema:", error);
+    throw new MOSIPError(
+      `Failed to fetch ID schema from API: ${error instanceof Error ? error.message : 'Unknown error'}. Please check API connectivity and authentication.`,
+    );
   }
 }
 
@@ -510,7 +530,8 @@ export const postBirthRecord = async ({
   notification: MosipInteropPayload["notification"];
 }) => {
   const authToken = await getMosipAuthToken("PACKET");
-  const { versionString: schemaVersionString, version: idSchemaVersion } = await getLatestIDSchemaVersion(authToken);
+  
+  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = await getLatestIDSchemaVersion(authToken);
 
   const documentFields = await extractDocumentFields(requestFields);
 

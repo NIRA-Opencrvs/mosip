@@ -45,22 +45,30 @@ export const confirmRegistration = (
 
   const isAlienId = !!nationalId && nationalId?.startsWith("A");
 
-  return client.event.actions.register.accept.mutate({
+  const basePayload = {
     transactionId: `mosip-interop-${crypto.randomUUID()}`,
     eventId,
     actionId,
     registrationNumber,
-    declaration: {
-      "child.ninAvailable" : "YES",
-      ...(isAlienId
-      ? {
-          "child.idType": "ALIEN_ID",
-          "child.alienID": nationalId,
-        }
-      : {
-          "child.idType": "NATIONAL_ID",
-          "child.nid": nationalId,
-        }),
-    },
+  };
+
+  const declaration = nationalId
+    ? {
+        "child.ninAvailable": "YES",
+        ...(isAlienId
+          ? {
+              "child.idType": "ALIEN_ID",
+              "child.alienID": nationalId,
+            }
+          : {
+              "child.idType": "NATIONAL_ID",
+              "child.nid": nationalId,
+            }),
+      }
+    : undefined;
+
+  return client.event.actions.register.accept.mutate({
+    ...basePayload,
+    ...(declaration ? { declaration } : {}),
   });
 };

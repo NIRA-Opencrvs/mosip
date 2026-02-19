@@ -998,8 +998,8 @@ export const postDeathRecord = async ({
       version: "v1",
       request: {
         registrationId: event.id,
-        process: "CRVS_DEATH",
-        source: "OPENCRVS",
+        process: "DEACTIVATED",
+        source: "REGISTRATION_CLIENT",
         additionalInfoReqId: "",
         notificationInfo: {
           name: notification.recipientFullName,

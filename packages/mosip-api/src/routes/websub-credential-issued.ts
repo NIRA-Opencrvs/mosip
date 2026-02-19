@@ -61,24 +61,35 @@ export const credentialIssuedHandler = async (
     const { eventId, actionId } = decode(token) as TokenPayload;
 
     if (isBirthSubject(verifiableCredential.credentialSubject)) {
-      opencrvs.confirmRegistration(
+      const childNIN = verifiableCredential.credentialSubject.NIN;
+
+
+      await opencrvs.confirmRegistration(
         {
           eventId,
           actionId,
           registrationNumber,
-          nationalId: verifiableCredential.credentialSubject.NIN,
+          nationalId: childNIN,
+          additionalDeclaration: childNIN
+            ? { "child.verified": "verified" }
+            : undefined,
         },
         { token },
       );
     } else {
-      opencrvs.confirmRegistration(
-        {
-          eventId,
-          actionId,
-          registrationNumber,
-        },
-        { token },
-      );
+
+        await opencrvs.confirmRegistration(
+          {
+            eventId,
+            actionId,
+            registrationNumber,
+            additionalDeclaration: { 
+              "deceased.verified": "failed"  // Use "failed" for deactivated IDs (displays as "ID Verification Failed")
+            },
+          },
+          { token },
+        );
+      
     }
     return reply
       .send({

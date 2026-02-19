@@ -948,6 +948,7 @@ export const postDeathRecord = async ({
   metaInfo: MosipInteropPayload["metaInfo"];
   notification: MosipInteropPayload["notification"];
 }) => {
+  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
   const authToken = await getMosipAuthToken("PACKET");
   const deactivatePacketRequestBody = JSON.stringify(
     {
@@ -958,9 +959,9 @@ export const postDeathRecord = async ({
         id: event.id,
         refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
         offlineMode: false,
-        process: "CRVS_DEATH",
-        source: "OPENCRVS",
-        schemaVersion: "0.100",
+        process: "DEACTIVATED",
+        source: "REGISTRATION_CLIENT",
+        schemaVersion: schemaVersionString,
         fields: requestFields,
         metaInfo: metaInfo,
         audits: Array.of(audit),

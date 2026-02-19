@@ -998,7 +998,7 @@ export const postDeathRecord = async ({
       requesttime: new Date().toISOString(),
       version: "v1",
       request: {
-        registrationId: event.id,
+        registrationId: registrationId,
         process: "DEACTIVATED",
         source: "REGISTRATION_CLIENT",
         additionalInfoReqId: "",

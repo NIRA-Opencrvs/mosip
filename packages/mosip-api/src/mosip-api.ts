@@ -950,14 +950,13 @@ export const postDeathRecord = async ({
 }) => {
   const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
   const authToken = await getMosipAuthToken("PACKET");
-  const registrationId = event.trackingId + '-' + event.id
   const deactivatePacketRequestBody = JSON.stringify(
     {
       id: "string",
       version: "string",
       requesttime: new Date().toISOString(),
       request: {
-        id: registrationId,
+        id: event.id,
         refId: `${env.MOSIP_CENTER_ID}_${env.MOSIP_MACHINE_ID}`,
         offlineMode: false,
         process: "DEACTIVATED",
@@ -998,7 +997,7 @@ export const postDeathRecord = async ({
       requesttime: new Date().toISOString(),
       version: "v1",
       request: {
-        registrationId: registrationId,
+        registrationId: event.id,
         process: "DEACTIVATED",
         source: "REGISTRATION_CLIENT",
         additionalInfoReqId: "",

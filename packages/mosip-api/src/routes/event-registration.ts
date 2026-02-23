@@ -41,7 +41,7 @@ export const registrationEventHandler = async (
   const deathCertificateNumber = requestFields.deathCertificateNumber;
 
   if (deathCertificateNumber) {
-    const transactionId = generateTransactionId();
+    const transactionId = trackingId + '-' + generateTransactionId();
 
     request.log.info({ transactionId }, "Event ID");
 

@@ -5,7 +5,6 @@ import { decode } from "jsonwebtoken";
 import * as opencrvs from "../opencrvs-api";
 import { decryptMosipCredential } from "../websub/crypto";
 import { env } from "../constants";
-import { isBirthSubject } from "../websub/verify-vc";
 
 export const CredentialIssuedSchema = z.object({
   publisher: z.string(),
@@ -60,11 +59,15 @@ export const credentialIssuedHandler = async (
       getTransactionAndDiscard(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
-    if (isBirthSubject(verifiableCredential.credentialSubject)) {
-      const childNIN = verifiableCredential.credentialSubject.NIN;
+    // Query OpenCRVS Core to determine event type (e.g. 'birth', 'death')
+    const eventType = await opencrvs.getEventType(eventId, { token });
 
+    if (eventType === "birth") {
+      // For birth events: Extract NIN from credential and mark as verified
+      const childNIN = (verifiableCredential.credentialSubject as any)
+        .NIN as string | undefined;
 
-      await opencrvs.confirmRegistration(
+            await opencrvs.confirmRegistration(
         {
           eventId,
           actionId,
@@ -77,19 +80,15 @@ export const credentialIssuedHandler = async (
         { token },
       );
     } else {
-
-        await opencrvs.confirmRegistration(
-          {
-            eventId,
-            actionId,
-            registrationNumber,
-            additionalDeclaration: { 
-              "deceased.verified": "failed"  // Use "failed" for deactivated IDs (displays as "ID Verification Failed")
-            },
-          },
-          { token },
-        );
-      
+      await opencrvs.confirmRegistration(
+        {
+          eventId,
+          actionId,
+          registrationNumber,
+          additionalDeclaration: { "deceased.verified": "failed" },
+        },
+        { token },
+      );
     }
     return reply
       .send({

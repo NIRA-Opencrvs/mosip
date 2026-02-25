@@ -25,6 +25,7 @@ import {
 } from "./routes/debug-sqlite";
 import { verifyHandler, VerifySchema } from "./routes/verify";
 import { initializeIDSchema } from "./mosip-api";
+import { registerPrnValidationRoutes } from "./routes/prn-validation";
 
 const envToLogger = {
   development: {
@@ -38,7 +39,19 @@ const envToLogger = {
   production: true,
 };
 
+const AUTH_EXEMPT_ROUTES = new Set([
+  "/websub/callback",
+  "/validate",
+  "/validate/check",
+  "/validate-status",
+  "/favicon.ico",
+]);
+
 const initRoutes = (app: FastifyInstance) => {
+  app.get("/favicon.ico", async (_request, reply) => {
+    return reply.code(204).send();
+  });
+
   /*
    * OpenCRVS birth / death registration and personal information verification
    */
@@ -103,6 +116,8 @@ const initRoutes = (app: FastifyInstance) => {
     url: "/debug/transactions/:id",
     handler: deleteTransactionHandler,
   });
+
+  registerPrnValidationRoutes(app);
 };
 
 let corePublicKey: string;
@@ -146,7 +161,8 @@ export const buildFastify = async () => {
     // @NOTE This disables the JWT authentication for the MOSIP webhook
     // The route is open for requests, but the credential will be verified it's from MOSIP
     // This API should be allowed ONLY from the IP address of MOSIP on network / Traefik level
-    if (request.routeOptions.url === "/websub/callback") return;
+    const routeUrl = request.routeOptions.url;
+    if (routeUrl && AUTH_EXEMPT_ROUTES.has(routeUrl)) return;
 
     try {
       await request.jwtVerify();
@@ -193,13 +209,13 @@ async function run() {
   wasConnected && app.log.info("SQLite token storage connected ✅");
 
   // Initialize ID Schema cache at startup
-  try {
-    await initializeIDSchema();
-    app.log.info("ID Schema initialized and cached ✅");
-  } catch (error) {
-    app.log.error("Failed to initialize ID Schema:", error);
-    throw error;
-  }
+  // try {
+  //   await initializeIDSchema();
+  //   app.log.info("ID Schema initialized and cached ✅");
+  // } catch (error) {
+  //   app.log.error("Failed to initialize ID Schema:", error);
+  //   throw error;
+  // }
 
   await app.ready();
   await app.listen({

@@ -1,11 +1,8 @@
-import Fastify from "fastify";
-import path from "path";
-import fastifyStatic from "@fastify/static";
-import formbody from "@fastify/formbody";
+import { FastifyInstance } from "fastify";
 import { readFileSync } from "node:fs";
-import { env } from "./constants";
-
-const app = Fastify({ logger: true });
+import path from "node:path";
+import { env } from "../constants";
+import { z } from "zod";
 
 type PaymentStatus = "paid" | "unpaid";
 type VerificationStatus = "verified" | "failed";
@@ -47,22 +44,44 @@ type CheckPrnStatusApiResponse = {
   statusDesc?: string;
 };
 
+type ValidateCheckBody = {
+  prn: string;
+  regId: string;
+  redirect_uri?: string;
+};
+
+type ValidateStatusQuery = {
+  prn: string;
+  regId: string;
+};
+
+const ValidateQuerySchema = z.object({
+  redirect_uri: z.string().optional(),
+  regId: z.string().optional(),
+});
+
+const ValidateCheckBodySchema = z.object({
+  prn: z.string(),
+  regId: z.string(),
+  redirect_uri: z.string().optional(),
+});
+
+const ValidateStatusQuerySchema = z.object({
+  prn: z.string(),
+  regId: z.string(),
+});
+
 const PRN_STATUS_DESCRIPTION: Record<PrnStatusCode, string> = {
   A: "PRN is available and not fully paid.",
   T: "Payment fully paid. You can continue.",
   R: "Payment received but not credited.",
   D: "Payment received but dishonoured.",
   C: "PRN was cancelled.",
-  X: "PRN has expired."
+  X: "PRN has expired.",
 };
 
-app.register(fastifyStatic, {
-  root: path.join(__dirname, "prn-validator")
-});
-app.register(formbody);
-
 function normalizePrnStatusCode(
-  statusCode: string | null | undefined
+  statusCode: string | null | undefined,
 ): PrnStatusCode | null {
   if (!statusCode) {
     return null;
@@ -78,7 +97,7 @@ function normalizePrnStatusCode(
 }
 
 function getVerificationStatusFromPrnStatusCode(
-  statusCode: PrnStatusCode
+  statusCode: PrnStatusCode,
 ): VerificationStatus {
   return statusCode === "T" ? "verified" : "failed";
 }
@@ -95,7 +114,7 @@ function buildFailedVerificationResponse({
   prn,
   regId,
   message,
-  prnStatusCode
+  prnStatusCode,
 }: {
   prn: string;
   regId: string;
@@ -110,7 +129,7 @@ function buildFailedVerificationResponse({
     prnVerificationStatus: "failed",
     prnStatusCode,
     prnStatusDescription: message,
-    message
+    message,
   };
 }
 
@@ -118,7 +137,7 @@ function buildSuccessResponse({
   prn,
   regId,
   prnStatusCode,
-  statusDescription
+  statusDescription,
 }: {
   prn: string;
   regId: string;
@@ -133,7 +152,7 @@ function buildSuccessResponse({
     prnVerificationStatus: getVerificationStatusFromPrnStatusCode(prnStatusCode),
     prnStatusCode,
     prnStatusDescription: statusDescription,
-    message: statusDescription
+    message: statusDescription,
   };
 }
 
@@ -141,29 +160,26 @@ function buildRequestErrorResponse(prn: string, message: string) {
   return {
     success: false,
     prn,
-    message
+    message,
   } satisfies ValidationResponse;
 }
 
 async function postPaymentApi<T>(
   url: string,
-  payload: Record<string, string>
+  payload: Record<string, string>,
 ): Promise<PaymentApiEnvelope<T>> {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    env.PAYMENT_API_TIMEOUT_MS
-  );
+  const timeout = setTimeout(() => controller.abort(), env.PAYMENT_API_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/json"
+        Accept: "application/json",
       },
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     const responseText = await response.text();
@@ -182,7 +198,7 @@ async function postPaymentApi<T>(
       throw new Error(
         `Payment API call failed (${response.status}): ${
           apiErrorMessage ?? responseText
-        }`
+        }`,
       );
     }
 
@@ -193,9 +209,7 @@ async function postPaymentApi<T>(
     return responseBody;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(
-        `Payment API timeout after ${env.PAYMENT_API_TIMEOUT_MS}ms`
-      );
+      throw new Error(`Payment API timeout after ${env.PAYMENT_API_TIMEOUT_MS}ms`);
     }
 
     throw error;
@@ -206,14 +220,14 @@ async function postPaymentApi<T>(
 
 async function validatePrn({
   prn,
-  regId
+  regId,
 }: {
   prn: string;
   regId: string;
 }): Promise<ValidationResponse> {
   const consumeResponse = await postPaymentApi<ConsumePrnApiResponse>(
     env.PAYMENT_CONSUME_PRN_URL,
-    { regId, prn }
+    { regId, prn },
   );
   const consumeResult = consumeResponse.response;
   const consumeErrorMessage =
@@ -224,13 +238,13 @@ async function validatePrn({
     return buildFailedVerificationResponse({
       prn,
       regId,
-      message: consumeErrorMessage
+      message: consumeErrorMessage,
     });
   }
 
   const checkResponse = await postPaymentApi<CheckPrnStatusApiResponse>(
     env.PAYMENT_CHECK_PRN_STATUS_URL,
-    { prn }
+    { prn },
   );
 
   const rawStatusCode = checkResponse.response?.statusCode ?? null;
@@ -247,7 +261,7 @@ async function validatePrn({
       prn,
       regId,
       prnStatusCode: rawStatusCode ?? undefined,
-      message: statusDescription
+      message: statusDescription,
     });
   }
 
@@ -255,144 +269,95 @@ async function validatePrn({
     prn,
     regId,
     prnStatusCode: normalizedStatusCode,
-    statusDescription
+    statusDescription,
   });
 }
 
-app.get("/validate", {
-  schema: {
-    querystring: {
-      type: "object",
-      required: [],
-      properties: {
-        redirect_uri: { type: "string" },
-        regId: { type: "string" }
-      }
-    }
-  },
-  handler: async (_request, reply) => {
-    const htmlFilePath = path.join(__dirname, "./prn-validator/index.html");
-    const html = readFileSync(htmlFilePath, "utf-8");
-    return reply.type("text/html").send(html);
-  }
-});
-
-app.post(
-  "/validate/check",
-  {
+export const registerPrnValidationRoutes = (app: FastifyInstance) => {
+  app.get("/validate", {
     schema: {
-      body: {
-        type: "object",
-        required: ["prn", "regId"],
-        properties: {
-          prn: { type: "string" },
-          regId: { type: "string" },
-          redirect_uri: { type: "string" }
-        }
-      }
-    }
-  },
-  async (request: any, reply) => {
-    const prn = request.body.prn.trim();
-    const regId = (request.body.regId ?? "").trim();
-
-    if (!prn) {
-      return reply
-        .status(400)
-        .send(buildRequestErrorResponse(prn, "PRN is required."));
-    }
-
-    if (!regId) {
-      return reply
-        .status(400)
-        .send(buildRequestErrorResponse(prn, "Tracking ID is required."));
-    }
-
-    try {
-      const validationResponse = await validatePrn({ prn, regId });
-      return reply.send(validationResponse);
-    } catch (error) {
-      request.log.error(
-        { err: error, prn, regId },
-        "Failed to validate PRN through payment API"
-      );
-      return reply
-        .status(502)
-        .send(
-          buildRequestErrorResponse(
-            prn,
-            "Unable to validate PRN at the moment. Please try again."
-          )
-        );
-    }
-  }
-);
-
-app.get(
-  "/validate-status",
-  {
-    schema: {
-      querystring: {
-        type: "object",
-        required: ["prn", "regId"],
-        properties: {
-          prn: { type: "string" },
-          regId: { type: "string" }
-        }
-      }
-    }
-  },
-  async (request: any, reply) => {
-    const prn = request.query.prn.trim();
-    const regId = (request.query.regId ?? "").trim();
-
-    if (!prn || !regId) {
-      return reply
-        .status(400)
-        .send(buildRequestErrorResponse(prn, "Both PRN and regId are required."));
-    }
-
-    try {
-      const validationResponse = await validatePrn({ prn, regId });
-      return reply.send(validationResponse);
-    } catch (error) {
-      request.log.error(
-        { err: error, prn, regId },
-        "Failed to validate PRN status query"
-      );
-      return reply
-        .status(502)
-        .send(
-          buildRequestErrorResponse(
-            prn,
-            "Unable to validate PRN at the moment. Please try again."
-          )
-        );
-    }
-  }
-);
-
-app.get("/health", async (_request, reply) => {
-  return reply.send({ status: "ok" });
-});
-
-async function run() {
-  await app.ready();
-  await app.listen({
-    port: env.PORT,
-    host: env.HOST
+      querystring: ValidateQuerySchema,
+    },
+    handler: async (_request, reply) => {
+      const htmlFilePath = path.join(__dirname, "../prn-validator/index.html");
+      const html = readFileSync(htmlFilePath, "utf-8");
+      return reply.type("text/html").send(html);
+    },
   });
 
-  console.log(
-    `PRN Validator server running at http://${env.HOST}:${env.PORT}`
-  );
-  console.log(`\nEndpoints:`);
-  console.log(`  GET  /validate?redirect_uri=<uri>  - PRN validation page`);
-  console.log(`  POST /validate/check               - Consume + check PRN status`);
-  console.log(
-    `  GET  /validate-status?prn=<prn>&regId=<trackingId> - Validate PRN status`
-  );
-  console.log(`  GET  /health                       - Health check`);
-}
+  app.post<{ Body: ValidateCheckBody }>(
+    "/validate/check",
+    {
+      schema: {
+        body: ValidateCheckBodySchema,
+      },
+    },
+    async (request, reply) => {
+      const prn = request.body.prn.trim();
+      const regId = request.body.regId.trim();
 
-void run();
+      if (!prn) {
+        return reply
+          .status(400)
+          .send(buildRequestErrorResponse(prn, "PRN is required."));
+      }
+
+      if (!regId) {
+        return reply
+          .status(400)
+          .send(buildRequestErrorResponse(prn, "Tracking ID is required."));
+      }
+
+      try {
+        const validationResponse = await validatePrn({ prn, regId });
+        return reply.send(validationResponse);
+      } catch (error) {
+        request.log.error(
+          { err: error, prn, regId },
+          "Failed to validate PRN through payment API",
+        );
+        return reply.status(502).send(
+          buildRequestErrorResponse(
+            prn,
+            "Unable to validate PRN at the moment. Please try again.",
+          ),
+        );
+      }
+    },
+  );
+
+  app.get<{ Querystring: ValidateStatusQuery }>(
+    "/validate-status",
+    {
+      schema: {
+        querystring: ValidateStatusQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const prn = request.query.prn.trim();
+      const regId = request.query.regId.trim();
+
+      if (!prn || !regId) {
+        return reply
+          .status(400)
+          .send(buildRequestErrorResponse(prn, "Both PRN and regId are required."));
+      }
+
+      try {
+        const validationResponse = await validatePrn({ prn, regId });
+        return reply.send(validationResponse);
+      } catch (error) {
+        request.log.error(
+          { err: error, prn, regId },
+          "Failed to validate PRN status query",
+        );
+        return reply.status(502).send(
+          buildRequestErrorResponse(
+            prn,
+            "Unable to validate PRN at the moment. Please try again.",
+          ),
+        );
+      }
+    },
+  );
+};

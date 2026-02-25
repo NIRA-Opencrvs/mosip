@@ -21,6 +21,7 @@ export const CredentialIssuedSchema = z.object({
     timestamp: z.string().datetime(),
     data: z.object({
       registrationId: z.string(),
+      registrationType: z.string(),
       credential: z.string(),
       credentialType: z.literal("vercred"),
       protectionKey: z.string(),
@@ -60,9 +61,11 @@ export const credentialIssuedHandler = async (
       getTransactionAndDiscard(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
-    if (isBirthSubject(verifiableCredential.credentialSubject)) {
-      const childNIN = verifiableCredential.credentialSubject.NIN;
+    const registrationType = request.body.event.data.registrationType;
+    const isDeath = registrationType === "DEACTIVATED";
 
+    if (isBirthSubject(verifiableCredential.credentialSubject) && !isDeath) {
+      const childNIN = verifiableCredential.credentialSubject.NIN;
 
       await opencrvs.confirmRegistration(
         {
@@ -77,7 +80,6 @@ export const credentialIssuedHandler = async (
         { token },
       );
     } else {
-
         await opencrvs.confirmRegistration(
           {
             eventId,

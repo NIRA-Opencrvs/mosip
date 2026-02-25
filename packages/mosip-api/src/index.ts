@@ -41,9 +41,8 @@ const envToLogger = {
 
 const AUTH_EXEMPT_ROUTES = new Set([
   "/websub/callback",
-  "/validate",
-  "/validate/check",
-  "/validate-status",
+  "/prn/validator",
+  "/prn/validate",
   "/favicon.ico",
 ]);
 
@@ -209,13 +208,13 @@ async function run() {
   wasConnected && app.log.info("SQLite token storage connected ✅");
 
   // Initialize ID Schema cache at startup
-  try {
-    await initializeIDSchema();
-    app.log.info("ID Schema initialized and cached ✅");
-  } catch (error) {
-    app.log.error("Failed to initialize ID Schema:", error);
-    throw error;
-  }
+  // try {
+  //   await initializeIDSchema();
+  //   app.log.info("ID Schema initialized and cached ✅");
+  // } catch (error) {
+  //   app.log.error("Failed to initialize ID Schema:", error);
+  //   throw error;
+  // }
 
   await app.ready();
   await app.listen({

@@ -50,11 +50,6 @@ type ValidateCheckBody = {
   redirect_uri?: string;
 };
 
-type ValidateStatusQuery = {
-  prn: string;
-  regId: string;
-};
-
 const ValidateQuerySchema = z.object({
   redirect_uri: z.string().optional(),
   regId: z.string().optional(),
@@ -64,11 +59,6 @@ const ValidateCheckBodySchema = z.object({
   prn: z.string(),
   regId: z.string(),
   redirect_uri: z.string().optional(),
-});
-
-const ValidateStatusQuerySchema = z.object({
-  prn: z.string(),
-  regId: z.string(),
 });
 
 const PRN_STATUS_DESCRIPTION: Record<PrnStatusCode, string> = {
@@ -274,7 +264,7 @@ async function validatePrn({
 }
 
 export const registerPrnValidationRoutes = (app: FastifyInstance) => {
-  app.get("/validate", {
+  app.get("/prn/validator", {
     schema: {
       querystring: ValidateQuerySchema,
     },
@@ -286,7 +276,7 @@ export const registerPrnValidationRoutes = (app: FastifyInstance) => {
   });
 
   app.post<{ Body: ValidateCheckBody }>(
-    "/validate/check",
+    "/prn/validate",
     {
       schema: {
         body: ValidateCheckBodySchema,
@@ -326,38 +316,4 @@ export const registerPrnValidationRoutes = (app: FastifyInstance) => {
     },
   );
 
-  app.get<{ Querystring: ValidateStatusQuery }>(
-    "/validate-status",
-    {
-      schema: {
-        querystring: ValidateStatusQuerySchema,
-      },
-    },
-    async (request, reply) => {
-      const prn = request.query.prn.trim();
-      const regId = request.query.regId.trim();
-
-      if (!prn || !regId) {
-        return reply
-          .status(400)
-          .send(buildRequestErrorResponse(prn, "Both PRN and regId are required."));
-      }
-
-      try {
-        const validationResponse = await validatePrn({ prn, regId });
-        return reply.send(validationResponse);
-      } catch (error) {
-        request.log.error(
-          { err: error, prn, regId },
-          "Failed to validate PRN status query",
-        );
-        return reply.status(502).send(
-          buildRequestErrorResponse(
-            prn,
-            "Unable to validate PRN at the moment. Please try again.",
-          ),
-        );
-      }
-    },
-  );
 };

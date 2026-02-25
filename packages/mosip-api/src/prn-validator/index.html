@@ -263,7 +263,7 @@
             validateButton.disabled = true;
 
             try {
-                const response = await fetch("/validate/check", {
+                const response = await fetch("/prn/validate", {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: new URLSearchParams({

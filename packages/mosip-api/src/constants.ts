@@ -72,15 +72,6 @@ export const env = cleanEnv(process.env, {
     desc: "The URL where MOSIP receives death webhooks from OpenCRVS",
   }),
 
-  PAYMENT_CONSUME_PRN_URL: url({
-    default: "https://api-internal.niradev1.idencode.link/v1/payment/consumePrn",
-  }),
-  PAYMENT_CHECK_PRN_STATUS_URL: url({
-    default:
-      "https://api-internal.niradev1.idencode.link/v1/payment/checkPrnStatus",
-  }),
-  PAYMENT_API_TIMEOUT_MS: num({ default: 15_000 }),
-
   // E-Signet
   ESIGNET_USERINFO_URL: url({
     devDefault: "http://localhost:20260/oidc/userinfo",

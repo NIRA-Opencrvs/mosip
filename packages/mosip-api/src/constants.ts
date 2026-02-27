@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url } from "envalid";
+import { cleanEnv, num, str, port, url } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {
@@ -71,6 +71,15 @@ export const env = cleanEnv(process.env, {
     devDefault: "http://localhost:20240/webhooks/opencrvs/death",
     desc: "The URL where MOSIP receives death webhooks from OpenCRVS",
   }),
+
+  PAYMENT_CONSUME_PRN_URL: url({
+    default: "https://api-internal.niradev1.idencode.link/v1/payment/consumePrn",
+  }),
+  PAYMENT_CHECK_PRN_STATUS_URL: url({
+    default:
+      "https://api-internal.niradev1.idencode.link/v1/payment/checkPrnStatus",
+  }),
+  PAYMENT_API_TIMEOUT_MS: num({ default: 15_000 }),
 
   // E-Signet
   ESIGNET_USERINFO_URL: url({

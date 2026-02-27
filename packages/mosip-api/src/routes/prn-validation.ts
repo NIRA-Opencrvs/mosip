@@ -50,6 +50,8 @@ type ValidateCheckBody = {
   redirect_uri?: string;
 };
 
+const PAYMENT_API_TIMEOUT_MS = 15_000;
+
 const ValidateQuerySchema = z.object({
   redirect_uri: z.string().optional(),
   regId: z.string().optional(),
@@ -159,7 +161,7 @@ async function postPaymentApi<T>(
   payload: Record<string, string>,
 ): Promise<PaymentApiEnvelope<T>> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.PAYMENT_API_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), PAYMENT_API_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
@@ -199,7 +201,7 @@ async function postPaymentApi<T>(
     return responseBody;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(`Payment API timeout after ${env.PAYMENT_API_TIMEOUT_MS}ms`);
+      throw new Error(`Payment API timeout after ${PAYMENT_API_TIMEOUT_MS}ms`);
     }
 
     throw error;
@@ -207,6 +209,9 @@ async function postPaymentApi<T>(
     clearTimeout(timeout);
   }
 }
+
+const consumePRNUrl = `${env.IDA_AUTH_DOMAIN_URI}/v1/payment/consumePrn`;
+const checkPrnStatusUrl = `${env.IDA_AUTH_DOMAIN_URI}/v1/payment/checkPrnStatus`;
 
 async function validatePrn({
   prn,
@@ -216,7 +221,7 @@ async function validatePrn({
   regId: string;
 }): Promise<ValidationResponse> {
   const consumeResponse = await postPaymentApi<ConsumePrnApiResponse>(
-    env.PAYMENT_CONSUME_PRN_URL,
+    consumePRNUrl,
     { regId, prn },
   );
   const consumeResult = consumeResponse.response;
@@ -233,7 +238,7 @@ async function validatePrn({
   }
 
   const checkResponse = await postPaymentApi<CheckPrnStatusApiResponse>(
-    env.PAYMENT_CHECK_PRN_STATUS_URL,
+    checkPrnStatusUrl,
     { prn },
   );
 

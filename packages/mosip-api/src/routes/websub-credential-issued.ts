@@ -21,7 +21,7 @@ export const CredentialIssuedSchema = z.object({
     timestamp: z.string().datetime(),
     data: z.object({
       registrationId: z.string(),
-      registrationType: z.string(),
+      registrationType: z.string().optional(),
       credential: z.string(),
       credentialType: z.literal("vercred"),
       protectionKey: z.string(),

@@ -38,10 +38,23 @@ type ConsumePrnApiResponse = {
   regIdTaggedToPrn?: string;
 };
 
+type CheckTranscLogsApiResponse = {
+  prn?: string;
+  prnNum?: string;
+  regIdTagged?: string | null;
+  regIdTaggedToPrn?: string | null;
+  presentInLogs?: boolean
+};
+
 type CheckPrnStatusApiResponse = {
   prn?: string;
   statusCode?: string;
   statusDesc?: string;
+};
+
+type TaggedRegIdResponse = {
+  regIdTagged?: string | null;
+  regIdTaggedToPrn?: string | null;
 };
 
 type ValidateCheckBody = {
@@ -101,6 +114,41 @@ function getPaymentStatusFromPrnStatusCode(statusCode: PrnStatusCode) {
 function extractErrorMessage(errors: PaymentApiError[] | null | undefined) {
   return errors?.find((error) => Boolean(error?.message))?.message ?? null;
 }
+
+function normalizeString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function hasSameRegId(left: string | null | undefined, right: string) {
+  const normalizedLeft = normalizeString(left);
+  const normalizedRight = normalizeString(right);
+
+  return (
+    normalizedLeft !== null &&
+    normalizedRight !== null &&
+    normalizedLeft === normalizedRight
+  );
+}
+
+function getTaggedRegId(
+  response: TaggedRegIdResponse | null | undefined,
+) {
+  return (
+    normalizeString(response?.regIdTagged) ??
+    normalizeString(response?.regIdTaggedToPrn)
+  );
+}
+
+function buildPrnAttachedMessage(taggedRegId: string) {
+  return `This PRN is already attached to tracking ID ${taggedRegId}. Please enter the correct PRN number.`;
+}
+
+const PRN_ATTACHED_STATUS_CODE = "ATTACHED";
 
 function buildFailedVerificationResponse({
   prn,
@@ -210,6 +258,7 @@ async function postPaymentApi<T>(
   }
 }
 
+const checkTranscLogsUrl = `${env.IDA_AUTH_DOMAIN_URI}/v1/payment/checkTranscLogs`;
 const consumePRNUrl = `${env.IDA_AUTH_DOMAIN_URI}/v1/payment/consumePrn`;
 const checkPrnStatusUrl = `${env.IDA_AUTH_DOMAIN_URI}/v1/payment/checkPrnStatus`;
 
@@ -220,20 +269,18 @@ async function validatePrn({
   prn: string;
   regId: string;
 }): Promise<ValidationResponse> {
-  const consumeResponse = await postPaymentApi<ConsumePrnApiResponse>(
-    consumePRNUrl,
-    { regId, prn },
+  const transactionLogResponse = await postPaymentApi<CheckTranscLogsApiResponse>(
+    checkTranscLogsUrl,
+    { prn },
   );
-  const consumeResult = consumeResponse.response;
-  const consumeErrorMessage =
-    extractErrorMessage(consumeResponse.errors) ??
-    "PRN could not be consumed. It may already be used.";
+  const taggedRegId = getTaggedRegId(transactionLogResponse.response);
 
-  if (!consumeResult?.consumedSucess) {
+  if (taggedRegId && !hasSameRegId(taggedRegId, regId)) {
     return buildFailedVerificationResponse({
       prn,
       regId,
-      message: consumeErrorMessage,
+      prnStatusCode: PRN_ATTACHED_STATUS_CODE,
+      message: buildPrnAttachedMessage(taggedRegId),
     });
   }
 
@@ -258,6 +305,32 @@ async function validatePrn({
       prnStatusCode: rawStatusCode ?? undefined,
       message: statusDescription,
     });
+  }
+
+  if (normalizedStatusCode === "T" && !hasSameRegId(taggedRegId, regId)) {
+    const consumeResponse = await postPaymentApi<ConsumePrnApiResponse>(
+      consumePRNUrl,
+      { regId, prn },
+    );
+    const consumeResult = consumeResponse.response;
+    const consumeTaggedRegId = getTaggedRegId(consumeResult);
+    const consumeErrorMessage =
+      extractErrorMessage(consumeResponse.errors) ??
+      (consumeTaggedRegId && !hasSameRegId(consumeTaggedRegId, regId)
+        ? buildPrnAttachedMessage(consumeTaggedRegId)
+        : "PRN could not be reserved for this tracking ID. Please try again.");
+
+    if (!consumeResult?.consumedSucess) {
+      return buildFailedVerificationResponse({
+        prn,
+        regId,
+        message: consumeErrorMessage,
+        prnStatusCode:
+          consumeTaggedRegId && !hasSameRegId(consumeTaggedRegId, regId)
+            ? PRN_ATTACHED_STATUS_CODE
+            : normalizedStatusCode,
+      });
+    }
   }
 
   return buildSuccessResponse({

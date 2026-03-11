@@ -78,17 +78,6 @@ export const confirmRegistration = (
   });
 };
 
-/** Fetches event type (e.g. 'birth', 'death') from OpenCRVS Core by event ID */
-export const getEventType = async (
-  eventId: string,
-  { token }: { token: string },
-): Promise<string> => {
-  const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
-  const client = createClient(url, `Bearer ${token}`);
-  const event = await client.event.get.query(eventId);
-  return event.type;
-};
-
 /** Sends informant notification via country-config after MOSIP websub callback */
 export const sendMosipNotification = async (
   {

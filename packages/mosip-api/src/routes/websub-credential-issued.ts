@@ -5,6 +5,7 @@ import { decode } from "jsonwebtoken";
 import * as opencrvs from "../opencrvs-api";
 import { decryptMosipCredential } from "../websub/crypto";
 import { env } from "../constants";
+import { isBirthSubject } from "../websub/verify-vc";
 
 export const CredentialIssuedSchema = z.object({
   publisher: z.string(),
@@ -20,6 +21,7 @@ export const CredentialIssuedSchema = z.object({
     timestamp: z.string().datetime(),
     data: z.object({
       registrationId: z.string(),
+      registrationType: z.string().optional(),
       credential: z.string(),
       credentialType: z.literal("vercred"),
       protectionKey: z.string(),
@@ -59,15 +61,13 @@ export const credentialIssuedHandler = async (
       getTransactionAndDiscard(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
-    // Query OpenCRVS Core to determine event type (e.g. 'birth', 'death')
-    const eventType = await opencrvs.getEventType(eventId, { token });
+    const registrationType = request.body.event.data.registrationType;
+    const isDeath = registrationType === "DEACTIVATED";
 
-    if (eventType === "birth") {
-      // For birth events: Extract NIN from credential and mark as verified
-      const childNIN = (verifiableCredential.credentialSubject as any)
-        .NIN as string | undefined;
+    if (isBirthSubject(verifiableCredential.credentialSubject) && !isDeath) {
+      const childNIN = verifiableCredential.credentialSubject.NIN;
 
-            await opencrvs.confirmRegistration(
+      await opencrvs.confirmRegistration(
         {
           eventId,
           actionId,
@@ -80,15 +80,18 @@ export const credentialIssuedHandler = async (
         { token },
       );
     } else {
-      await opencrvs.confirmRegistration(
-        {
-          eventId,
-          actionId,
-          registrationNumber,
-          additionalDeclaration: { "deceased.verified": "failed" },
-        },
-        { token },
-      );
+        await opencrvs.confirmRegistration(
+          {
+            eventId,
+            actionId,
+            registrationNumber,
+            additionalDeclaration: { 
+              "deceased.verified": "failed"  // Use "failed" for deactivated IDs (displays as "ID Verification Failed")
+            },
+          },
+          { token },
+        );
+      
     }
     return reply
       .send({

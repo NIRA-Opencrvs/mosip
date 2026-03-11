@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url } from "envalid";
+import { cleanEnv, num, str, port, url } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {

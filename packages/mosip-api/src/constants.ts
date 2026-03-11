@@ -1,4 +1,4 @@
-import { cleanEnv, num, str, port, url } from "envalid";
+import { cleanEnv, str, port, url } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {
@@ -17,6 +17,10 @@ export const env = cleanEnv(process.env, {
   OPENCRVS_GATEWAY_URL: str({
     devDefault: "http://localhost:7070",
     desc: "The URL of the OpenCRVS GraphQL Gateway",
+  }),
+  COUNTRY_CONFIG_URL: str({
+    devDefault: "http://localhost:3040",
+    desc: "The URL of the OpenCRVS country config server for sending notifications after MOSIP callback",
   }),
   OPENCRVS_PUBLIC_KEY_URL: str({
     devDefault: "http://localhost:4040/.well-known",

@@ -88,3 +88,41 @@ export const getEventType = async (
   const event = await client.event.get.query(eventId);
   return event.type;
 };
+
+/** Sends informant notification via country-config after MOSIP websub callback */
+export const sendMosipNotification = async (
+  {
+    eventId,
+    registrationNumber,
+  }: {
+    eventId: string;
+    registrationNumber: string;
+  },
+  { token }: { token: string },
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${env.COUNTRY_CONFIG_URL}/mosip-notification`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId, registrationNumber }),
+      },
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Failed to send MOSIP notification: ${response.status} ${response.statusText}`,
+      );
+    } else {
+      console.log(
+        `MOSIP notification sent successfully for event ${eventId}`,
+      );
+    }
+  } catch (error) {
+    console.error("Error sending MOSIP notification:", error);
+  }
+};

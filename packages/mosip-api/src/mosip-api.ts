@@ -790,11 +790,20 @@ export const postBirthRecord = async ({
     });
 
     const rawResponseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed creating pre-registration: ${response.status} ${rawResponseText}`,
+      );
+    }
+
     let createData: any = rawResponseText;
     try {
       createData = rawResponseText ? JSON.parse(rawResponseText) : rawResponseText;
     } catch (e) {
-      throw error("Parsing error exception: ", e);
+      throw new Error(
+        `Failed parsing pre-registration response: ${e instanceof Error ? e.message : "Unknown parsing error"}`,
+      );
     }
     const preRegId = createData?.response?.preRegistrationId;
 
@@ -816,6 +825,12 @@ export const postBirthRecord = async ({
         Cookie: `Authorization=${authToken};`
       }
     });
+
+    if (!statusRes.ok) {
+      throw new Error(
+        `Failed updating status to Pending_Appointment: ${statusRes.status} ${await statusRes.text()}`,
+      );
+    }
 
     const statusResult = await statusRes.json();
     console.log("Status update response:", statusResult);
@@ -917,13 +932,17 @@ export const postBirthRecord = async ({
 
 
         if (!notificationRes.ok) {
-          console.error(`Failed to send notification: ${notificationRes.status} ${await notificationRes.text()}`);
+          throw new Error(
+            `Failed to send notification: ${notificationRes.status} ${await notificationRes.text()}`,
+          );
         } else {
           const notificationResult = await notificationRes.json();
           console.log("Notification sent successfully:", notificationResult);
         }
       } catch (error) {
-        console.error("Error sending notification:", error);
+        throw new Error(
+          `Error sending notification: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
       }
     } else {
       console.warn("Pre-registration ID not available, skipping document upload");

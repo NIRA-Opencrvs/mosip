@@ -63,6 +63,8 @@ const JWT_ALG = "RS256";
 export const OIDPUserInfoSchema = z.object({
   clientId: z.string(),
   redirectUri: z.string(),
+  placeOfBirth: z.string().optional(),
+  deathService: z.string().optional(),
 });
 
 export const OIDPQuerySchema = z.object({
@@ -190,9 +192,16 @@ const getRoleFromRedirectUri = (redirectUri?: string) => {
   return undefined;
 };
 
+const ALIEN_ID_PREFIXES_REGEX = /^(AM|AF)/i;
+
+const BIRTH_SERVICES_WITHOUT_ALIEN_ID: string[] = ["OUTSIDE_UGANDA", "FOUNDLING"];
+const DEATH_SERVICES_WITHOUT_ALIEN_ID: string[] = ["DEATH_OUTSIDE_UGANDA"];
+
 const pickUserInfo = async (
   userInfo: OIDPUserInfo,
-  redirectUri?: string
+  redirectUri?: string,
+  placeOfBirth?: string,
+  deathService?: string
 ) => {
   const role = getRoleFromRedirectUri(redirectUri);
   const gender = userInfo?.gender?.toLowerCase();
@@ -205,8 +214,23 @@ const pickUserInfo = async (
       verificationStatus: "failed"
     };
   }
-  
+
   const nationalId = userInfo.nin;
+
+  // Alien IDs (AM/AF prefix) are not applicable for Birth Outside Uganda, Foundling, and Death Outside Uganda
+  if (
+    nationalId &&
+    ALIEN_ID_PREFIXES_REGEX.test(nationalId) &&
+    (
+      (placeOfBirth && BIRTH_SERVICES_WITHOUT_ALIEN_ID.includes(placeOfBirth)) ||
+      (deathService && DEATH_SERVICES_WITHOUT_ALIEN_ID.includes(deathService))
+    )
+  ) {
+    return {
+      verificationStatus: "failed"
+    };
+  }
+
   const isAlienId = !!nationalId && nationalId.startsWith("A");
 
   return {
@@ -239,7 +263,9 @@ const decodeUserInfoResponse = (response: string) => {
 
 export const fetchUserInfo = async (
   accessToken: string,
-  redirectUri?: string
+  redirectUri?: string,
+  placeOfBirth?: string,
+  deathService?: string
 ) => {
   const request = await fetch(env.ESIGNET_USERINFO_URL, {
     method: "GET",
@@ -257,7 +283,7 @@ export const fetchUserInfo = async (
       JSON.stringify(response),
     );
   }
-  const pickedUserInfo = await pickUserInfo(decodedResponse, redirectUri);
+  const pickedUserInfo = await pickUserInfo(decodedResponse, redirectUri, placeOfBirth, deathService);
   console.log("Picked User Info :", JSON.stringify(pickedUserInfo));
 
   return pickedUserInfo;

@@ -260,6 +260,11 @@
                 return;
             }
 
+            if (prn.length < 13) {
+                showMessage("error", "PRN must be 13 digits long.");
+                return;
+            }
+
             validateButton.disabled = true;
 
             try {
@@ -293,9 +298,11 @@
                         ? "Payment verified. Returning to form..."
                         : "Payment is not fully paid. Returning to form...")
                 );
-                setTimeout(() => {
-                    goBackWithStatus(data);
-                }, isPaid ? 800 : 1200);
+                if (isPaid || data.prnStatusCode) {
+                    setTimeout(() => {
+                        goBackWithStatus(data);
+                    }, isPaid ? 800 : 1200);
+                }
             } catch (_error) {
                 showMessage("error", "Unable to validate PRN. Please try again.");
             } finally {

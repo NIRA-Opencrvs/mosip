@@ -63,8 +63,7 @@ const JWT_ALG = "RS256";
 export const OIDPUserInfoSchema = z.object({
   clientId: z.string(),
   redirectUri: z.string(),
-  placeOfBirth: z.string().optional(),
-  deathService: z.string().optional(),
+  service: z.string().optional(),
 });
 
 export const OIDPQuerySchema = z.object({
@@ -192,22 +191,18 @@ const getRoleFromRedirectUri = (redirectUri?: string) => {
   return undefined;
 };
 
-const getPageFromRedirectUri = (redirectUri?: string): string | undefined => {
-  if (!redirectUri) return undefined;
-  const match = redirectUri.match(/\/pages\/([^/?#]+)/);
-  return match?.[1];
-};
-
 const ALIEN_ID_PREFIXES_REGEX = /^(AM|AF)/i;
 
-const BIRTH_SERVICES_WITHOUT_ALIEN_ID: string[] = ["OUTSIDE_UGANDA", "FOUNDLING"];
-const DEATH_SERVICES_WITHOUT_ALIEN_ID: string[] = ["DEATH_OUTSIDE_UGANDA"];
+const SERVICES_WITHOUT_ALIEN_ID: string[] = [
+  "OUTSIDE_UGANDA",
+  "FOUNDLING",
+  "DEATH_OUTSIDE_UGANDA",
+];
 
 const pickUserInfo = async (
   userInfo: OIDPUserInfo,
   redirectUri?: string,
-  placeOfBirth?: string,
-  deathService?: string
+  service?: string
 ) => {
   const role = getRoleFromRedirectUri(redirectUri);
   const gender = userInfo?.gender?.toLowerCase();
@@ -222,17 +217,13 @@ const pickUserInfo = async (
   }
 
   const nationalId = userInfo.nin;
-  const page = getPageFromRedirectUri(redirectUri);
 
-  // Alien IDs (AM/AF prefix) are not applicable on the child page for Birth Outside Uganda / Foundling,
-  // and on the deceased page for Death Outside Uganda
+  // Alien IDs (AM/AF prefix) are not applicable for Birth Outside Uganda, Foundling, and Death Outside Uganda.
   if (
     nationalId &&
     ALIEN_ID_PREFIXES_REGEX.test(nationalId) &&
-    (
-      (page === "child" && placeOfBirth && BIRTH_SERVICES_WITHOUT_ALIEN_ID.includes(placeOfBirth)) ||
-      (page === "deceased" && deathService && DEATH_SERVICES_WITHOUT_ALIEN_ID.includes(deathService))
-    )
+    service &&
+    SERVICES_WITHOUT_ALIEN_ID.includes(service)
   ) {
     return {
       verificationStatus: "failed"
@@ -272,8 +263,7 @@ const decodeUserInfoResponse = (response: string) => {
 export const fetchUserInfo = async (
   accessToken: string,
   redirectUri?: string,
-  placeOfBirth?: string,
-  deathService?: string
+  service?: string
 ) => {
   const request = await fetch(env.ESIGNET_USERINFO_URL, {
     method: "GET",
@@ -291,7 +281,7 @@ export const fetchUserInfo = async (
       JSON.stringify(response),
     );
   }
-  const pickedUserInfo = await pickUserInfo(decodedResponse, redirectUri, placeOfBirth, deathService);
+  const pickedUserInfo = await pickUserInfo(decodedResponse, redirectUri, service);
   console.log("Picked User Info :", JSON.stringify(pickedUserInfo));
 
   return pickedUserInfo;

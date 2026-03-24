@@ -192,6 +192,12 @@ const getRoleFromRedirectUri = (redirectUri?: string) => {
   return undefined;
 };
 
+const getPageFromRedirectUri = (redirectUri?: string): string | undefined => {
+  if (!redirectUri) return undefined;
+  const match = redirectUri.match(/\/pages\/([^/?#]+)/);
+  return match?.[1];
+};
+
 const ALIEN_ID_PREFIXES_REGEX = /^(AM|AF)/i;
 
 const BIRTH_SERVICES_WITHOUT_ALIEN_ID: string[] = ["OUTSIDE_UGANDA", "FOUNDLING"];
@@ -216,14 +222,16 @@ const pickUserInfo = async (
   }
 
   const nationalId = userInfo.nin;
+  const page = getPageFromRedirectUri(redirectUri);
 
-  // Alien IDs (AM/AF prefix) are not applicable for Birth Outside Uganda, Foundling, and Death Outside Uganda
+  // Alien IDs (AM/AF prefix) are not applicable on the child page for Birth Outside Uganda / Foundling,
+  // and on the deceased page for Death Outside Uganda
   if (
     nationalId &&
     ALIEN_ID_PREFIXES_REGEX.test(nationalId) &&
     (
-      (placeOfBirth && BIRTH_SERVICES_WITHOUT_ALIEN_ID.includes(placeOfBirth)) ||
-      (deathService && DEATH_SERVICES_WITHOUT_ALIEN_ID.includes(deathService))
+      (page === "child" && placeOfBirth && BIRTH_SERVICES_WITHOUT_ALIEN_ID.includes(placeOfBirth)) ||
+      (page === "deceased" && deathService && DEATH_SERVICES_WITHOUT_ALIEN_ID.includes(deathService))
     )
   ) {
     return {

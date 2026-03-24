@@ -16,12 +16,14 @@ export const OIDPUserInfoHandler = async (
   request: OIDPUserInfoRequest,
   _reply: FastifyReply,
 ) => {
-  const { clientId, redirectUri } = request.body;
+  const { clientId, redirectUri, placeOfBirth, deathService } = request.body;
   const code = request.query.code;
 
   console.log("OIDPUserInfoHandler", {
     clientId,
     redirectUri,
+    placeOfBirth,
+    deathService,
     code,
   });
 
@@ -38,5 +40,5 @@ export const OIDPUserInfoHandler = async (
     );
   }
 
-  return fetchUserInfo(tokenResponse.access_token, redirectUri);
+  return fetchUserInfo(tokenResponse.access_token, redirectUri, placeOfBirth, deathService);
 };

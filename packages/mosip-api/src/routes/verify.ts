@@ -11,7 +11,7 @@ export const locales: Record<string, Locale> = { en: enGB, fr };
 
 export const VerifySchema = z.object({
   nid: TextValue,
-  dob: DateValue,
+  dob: DateValue.optional(),
   name: NameFieldValue,
   gender: TextValue.optional(),
   transactionId: z.string().optional(),
@@ -30,7 +30,7 @@ export const verifyHandler = async (
     response: { authStatus },
   } = await verifyNid({
     nid: request.body.nid,
-    dob: formatDate(request.body.dob, "dd/MM/yyyy"),
+    dob: request.body.dob? formatDate(request.body.dob, "dd/MM/yyyy"):undefined,
     name: [
       {
         language: "eng",

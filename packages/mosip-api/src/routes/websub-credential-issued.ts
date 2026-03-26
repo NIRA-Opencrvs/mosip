@@ -67,10 +67,7 @@ export const credentialIssuedHandler = async (
     if (isBirthSubject(verifiableCredential.credentialSubject) && !isDeath) {
       const childNIN = verifiableCredential.credentialSubject.NIN;
 
-      await opencrvs.sendMosipNotification(
-        { eventId, registrationNumber },
-        { token },
-      );
+      
       await opencrvs.confirmRegistration(
         {
           eventId,
@@ -83,11 +80,12 @@ export const credentialIssuedHandler = async (
         },
         { token },
       );
-    } else {
-      await opencrvs.sendMosipNotification(
+       await opencrvs.sendMosipNotification(
         { eventId, registrationNumber },
         { token },
       );
+    } else {
+      
       await opencrvs.confirmRegistration(
         {
           eventId,
@@ -99,7 +97,10 @@ export const credentialIssuedHandler = async (
         },
         { token },
       );
-
+       await opencrvs.sendMosipNotification(
+        { eventId, registrationNumber },
+        { token },
+      );
     }
     return reply
       .send({

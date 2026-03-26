@@ -272,6 +272,7 @@ interface DocumentField {
 }
 const getDocumentMapping = (documentType: string): { docCatCode: string; docTypCode: string } => {
   const typeMapping: Record<string, { docCatCode: string; docTypCode: string }> = {
+    'NIN': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'PASSPORT': { docCatCode: 'POPASS', docTypCode: 'DOC001' },
     'NATIONAL_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
     'ALIEN_ID': { docCatCode: 'PONPBR', docTypCode: 'GID' },
@@ -874,8 +875,15 @@ export const postBirthRecord = async ({
 
     if (preRegId) {
       const uploadedDocCatCodes = new Set<string>();
-      
-      for (const document of documentFields) {
+
+      // NIN takes priority over NationalID category — sort NIN to the front
+      const prioritisedDocumentFields = [...documentFields].sort((a, b) => {
+        if (a.type === 'NIN') return -1;
+        if (b.type === 'NIN') return 1;
+        return 0;
+      });
+
+      for (const document of prioritisedDocumentFields) {
         try {
           const { docCatCode } = getDocumentMapping(document.type);
           

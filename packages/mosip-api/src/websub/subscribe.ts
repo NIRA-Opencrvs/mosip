@@ -29,6 +29,27 @@ export const initWebSub = async () => {
     );
   }
 
+  const responseErrorTopic = await fetch(env.MOSIP_WEBSUB_HUB_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `${authToken}`,
+      Cookie: `Authorization=${authToken}`,
+    },
+    body: new URLSearchParams({
+      "hub.mode": "subscribe",
+      "hub.topic": env.MOSIP_WEBSUB_ERROR_TOPIC,
+      "hub.callback": env.MOSIP_WEBSUB_ERROR_CALLBACK_URL,
+      "hub.secret": env.MOSIP_WEBSUB_ERROR_SECRET,
+    }),
+  });
+
+  if (!responseErrorTopic.ok) {
+    throw new Error(
+      `Failed to subscribe to topic '${env.MOSIP_WEBSUB_ERROR_TOPIC}': ${responseErrorTopic.status} ${await responseErrorTopic.text()}`,
+    );
+  }
+
   return {
     topic: env.MOSIP_WEBSUB_TOPIC,
     response: await response.text(),

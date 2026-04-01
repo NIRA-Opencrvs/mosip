@@ -29,6 +29,21 @@ export const CredentialIssuedSchema = z.object({
   }),
 });
 
+export const CredentialErrorSchema = z.object({
+  publisher: z.string(),
+  topic: z.literal(env.MOSIP_WEBSUB_ERROR_TOPIC),
+  publishedOn: z.string().datetime(),
+  event: z.object({
+    id: z.string().uuid(),
+    timestamp: z.string().datetime(),
+    data: z.object({
+      registrationId: z.string(),
+      registrationType: z.string().optional(),
+      failureReason: z.string(),
+    }),
+  }),
+});
+
 export interface TokenPayload {
   eventId: string;
   actionId: string;
@@ -36,6 +51,10 @@ export interface TokenPayload {
 
 type CredentialIssuedRequest = FastifyRequest<{
   Body: z.infer<typeof CredentialIssuedSchema>;
+}>;
+
+type CredentialErrorRequest = FastifyRequest<{
+  Body: z.infer<typeof CredentialErrorSchema>;
 }>;
 
 export const credentialIssuedHandler = async (
@@ -126,6 +145,62 @@ export const credentialIssuedHandler = async (
         event: {
           id: request.body.event.id,
           requestId: request.body.event.transactionId,
+          timestamp: new Date().toISOString(),
+          status: "ERROR",
+          url: "",
+        },
+      })
+      .status(200);
+  }
+};
+
+export const credentialErrorHandler = async (
+  request: CredentialErrorRequest,
+  reply: FastifyReply,
+) => {
+  try {
+    const transactionId = request.body.event.data.registrationId;
+    console.log("Received error from MOSIP for transactionId: ", transactionId);
+
+    const { token, registrationNumber } =
+      getTransactionAndDiscard(transactionId);
+    const { eventId, actionId } = decode(token) as TokenPayload;
+
+    const failureReason = request.body.event.data.failureReason;
+
+    await opencrvs.rejectRegistration(
+      {
+        eventId,
+        actionId,
+        failureReason
+      },
+      { token }
+    );
+
+    return reply
+      .send({
+        publisher: request.body.publisher,
+        topic: request.body.topic,
+        publishedOn: new Date().toISOString(),
+        event: {
+          id: request.body.event.id,
+          // requestId: request.body.event.transactionId,
+          timestamp: new Date().toISOString(),
+          status: "RECEIVED",
+          url: "",
+        },
+      })
+      .status(200);
+  } catch (error) {
+    console.error("error: ", error);
+    return reply
+      .send({
+        publisher: request.body.publisher,
+        topic: request.body.topic,
+        publishedOn: new Date().toISOString(),
+        event: {
+          id: request.body.event.id,
+          // requestId: request.body.event.transactionId,
           timestamp: new Date().toISOString(),
           status: "ERROR",
           url: "",

@@ -78,6 +78,35 @@ export const confirmRegistration = (
   });
 };
 
+export const rejectRegistration = async (
+  {
+    eventId,
+    actionId,
+    failureReason
+  }: {
+    eventId: string;
+    actionId: string;
+    failureReason: string;
+  },
+  { token }: { token: string },
+) => {
+  const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
+  const client = createClient(url, `Bearer ${token}`);
+
+  await client.event.actions.register.reject.mutate({
+    transactionId: `mosip-interop-${crypto.randomUUID()}`,
+    eventId,
+    actionId
+  });
+
+  return client.event.actions.reject.request.mutate({
+    transactionId: `mosip-interop-${crypto.randomUUID()}`,
+    eventId,
+    actionId,
+    content: { failureReason }
+  })
+};
+
 /** Sends informant notification via country-config after MOSIP websub callback */
 export const sendMosipNotification = async (
   {

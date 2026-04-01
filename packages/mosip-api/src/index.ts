@@ -15,6 +15,8 @@ import { getPublicKey } from "./opencrvs-api";
 import { OIDPUserInfoHandler } from "./routes/oidp-user-info";
 import { initSqlite } from "./database";
 import {
+  credentialErrorHandler,
+  CredentialErrorSchema,
   credentialIssuedHandler,
   CredentialIssuedSchema,
 } from "./routes/websub-credential-issued";
@@ -41,6 +43,7 @@ const envToLogger = {
 
 const AUTH_EXEMPT_ROUTES = new Set([
   "/websub/callback",
+  "/websub/error-callback",
   "/prn/validator",
   "/prn/validate",
   "/favicon.ico",
@@ -98,6 +101,23 @@ const initRoutes = (app: FastifyInstance) => {
     handler: credentialIssuedHandler,
     schema: {
       body: CredentialIssuedSchema,
+    },
+  });
+
+  app.get("/websub/error-callback", async (request, reply) => {
+    const { "hub.challenge": challenge } = request.query as {
+      "hub.challenge"?: string;
+    };
+    if (challenge) return reply.type("text/plain").send(challenge);
+    else return reply.code(400).send("Missing hub.challenge");
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/websub/error-callback", // see constants.ts `${env.MOSIP_WEBSUB_ERROR_CALLBACK_URL}`
+    handler: credentialErrorHandler,
+    schema: {
+      body: CredentialErrorSchema,
     },
   });
 

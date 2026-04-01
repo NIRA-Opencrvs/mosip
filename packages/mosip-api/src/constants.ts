@@ -54,6 +54,20 @@ export const env = cleanEnv(process.env, {
     example: "https://your-domain.com/websub/callback",
     desc: "The OpenCRVS side URL MOSIP sends WebSub updates to, `hub.callback`",
   }),
+  MOSIP_WEBSUB_ERROR_SECRET: str({
+    devDefault: "mosip-websub-error-secret",
+    desc: "MOSIP WebSub error `hub.secret`",
+  }),
+  MOSIP_WEBSUB_ERROR_TOPIC: str({
+    devDefault: "OPENCRVS_ERROR",
+    desc: "The Kafka topic that is listened for ID credential issuance errors, `hub.topic`",
+  }),
+  MOSIP_WEBSUB_ERROR_CALLBACK_URL: str({
+    devDefault: "http://localhost:2024/websub/error-callback",
+    example: "https://your-domain.com/websub/error-callback",
+    desc: "The OpenCRVS side URL MOSIP sends WebSub error updates to, `hub.callback`",
+  }),
+
   MOSIP_VERIFIABLE_CREDENTIAL_ALLOWLIST: str({
     devDefault: "http://localhost:20240/.well-known/public-key.json",
     example: "https://your-domain.com/.well-known/public-key.json",

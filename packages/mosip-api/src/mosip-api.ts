@@ -940,7 +940,7 @@ export const postBirthRecord = async ({
 
 
         if (!notificationRes.ok) {
-          throw new Error(
+          console.log(
             `Failed to send notification: ${notificationRes.status} ${await notificationRes.text()}`,
           );
         } else {
@@ -948,7 +948,7 @@ export const postBirthRecord = async ({
           console.log("Notification sent successfully:", notificationResult);
         }
       } catch (error) {
-        throw new Error(
+        console.log(
           `Error sending notification: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }

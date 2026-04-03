@@ -19,6 +19,7 @@ export const registrationEventHandler = async (
   const token = request.headers.authorization!.split(" ")[1];
 
   request.log.info({ trackingId }, "Received record from OpenCRVS");
+  try {
 
   const birthCertificateNumber = requestFields.birthCertificateNumber;
 
@@ -57,4 +58,14 @@ export const registrationEventHandler = async (
   }
 
   return reply.code(202).send({});
+   } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "An unexpected error occurred in MOSIP API";
+
+    request.log.error("Error occured in mosip-api :",error, errorMessage);
+
+    return reply.code(500).send({ error: errorMessage });
+  }
 };

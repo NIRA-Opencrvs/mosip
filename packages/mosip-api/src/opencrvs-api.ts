@@ -90,21 +90,30 @@ export const rejectRegistration = async (
   },
   { token }: { token: string },
 ) => {
-  const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
-  const client = createClient(url, `Bearer ${token}`);
+  process.nextTick(async () => {
+    try {
+      const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
+      const client = createClient(url, `Bearer ${token}`);
 
-  await client.event.actions.register.reject.mutate({
-    transactionId: `mosip-interop-${crypto.randomUUID()}`,
-    eventId,
-    actionId
+      await client.event.actions.register.reject.mutate({
+        transactionId: `mosip-interop-${crypto.randomUUID()}`,
+        eventId,
+        actionId
+      });
+
+      await client.event.actions.reject.request.mutate({
+        transactionId: `mosip-interop-${crypto.randomUUID()}`,
+        eventId,
+        actionId,
+        content: { reason: failureReason }
+      });
+
+    } catch (err) {
+      console.error("MOSIP rejection failed:", err);
+    }
   });
 
-  return client.event.actions.reject.request.mutate({
-    transactionId: `mosip-interop-${crypto.randomUUID()}`,
-    eventId,
-    actionId,
-    content: { failureReason }
-  })
+  return true;
 };
 
 /** Sends informant notification via country-config after MOSIP websub callback */

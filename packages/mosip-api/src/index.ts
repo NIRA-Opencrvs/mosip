@@ -28,6 +28,12 @@ import {
 import { verifyHandler, VerifySchema } from "./routes/verify";
 import { initializeIDSchema } from "./mosip-api";
 import { registerPrnValidationRoutes } from "./routes/prn-validation";
+import { startBatchRetryJob } from "./batch-retry";
+import {
+  triggerBatchRetryHandler,
+  getPendingRecordsHandler,
+  deleteFailedRecordHandler,
+} from "./routes/batch-retry-debug";
 
 const envToLogger = {
   development: {
@@ -134,6 +140,27 @@ const initRoutes = (app: FastifyInstance) => {
     method: "DELETE",
     url: "/debug/transactions/:id",
     handler: deleteTransactionHandler,
+  });
+
+  /*
+   * Batch retry routes
+   */
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "GET",
+    url: "/debug/pending-records",
+    handler: getPendingRecordsHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/retry-batch",
+    handler: triggerBatchRetryHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "DELETE",
+    url: "/debug/failed-records/:id",
+    handler: deleteFailedRecordHandler,
   });
 
   registerPrnValidationRoutes(app);
@@ -250,7 +277,11 @@ async function run() {
   const { topic } = await initWebSub();
   app.log.info(`WebSub subscription initialized for topic '${topic}' ✅`);
 
+  // Start batch retry job (runs every 5 minutes by default)
+  const retryJobInterval = startBatchRetryJob(app);
+
   process.on("exit", () => {
+    clearInterval(retryJobInterval);
     database.close();
     app.close();
   });

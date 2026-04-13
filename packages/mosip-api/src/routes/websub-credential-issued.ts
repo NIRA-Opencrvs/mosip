@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { FastifyReply, FastifyRequest } from "fastify";
-import { getTransactionAndDiscard } from "../database";
+import { getTransaction, discardTransaction } from "../database";
 import { decode } from "jsonwebtoken";
 import * as opencrvs from "../opencrvs-api";
 import { decryptMosipCredential } from "../websub/crypto";
@@ -77,7 +77,7 @@ export const credentialIssuedHandler = async (
     const transactionId = request.body.event.data.registrationId;
 
     const { token, registrationNumber } =
-      getTransactionAndDiscard(transactionId);
+      getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
     const registrationType = request.body.event.data.registrationType;
@@ -121,6 +121,10 @@ export const credentialIssuedHandler = async (
         { token },
       );
     }
+
+    // Delete transaction after successful processing
+    discardTransaction(transactionId);
+
     return reply
       .send({
         publisher: request.body.publisher,
@@ -163,7 +167,7 @@ export const credentialErrorHandler = async (
     console.log("Received error from MOSIP for transactionId: ", transactionId);
 
     const { token, registrationNumber } =
-      getTransactionAndDiscard(transactionId);
+      getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
     const failureReason = request.body.event.data.failureReason;
@@ -176,6 +180,9 @@ export const credentialErrorHandler = async (
       },
       { token }
     );
+
+    // Delete transaction after processing error
+    discardTransaction(transactionId);
 
     return reply
       .send({

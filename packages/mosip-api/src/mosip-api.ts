@@ -566,7 +566,6 @@ export const postBirthRecord = async ({
 }) => {
   const authToken = await getMosipAuthToken("PACKET");
   
- 
   const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
 
   const documentFields = await extractDocumentFields(requestFields);
@@ -580,7 +579,7 @@ export const postBirthRecord = async ({
   if (ageInMonths <= 9) {
     const registrationId = event.trackingId + '-' + event.id;
     console.log({ registrationId }, "Event ID");
-    insertTransaction(registrationId, event.token, birthCertificateNumber);
+    // insertTransaction(registrationId, event.token, birthCertificateNumber);
 
     const { documents, ...newRequestBody } = requestFields;
     
@@ -670,6 +669,8 @@ export const postBirthRecord = async ({
         `Error in processing packet, response: ${await processPacketResponseJson?.errors[0]?.message}`,
       );
     }
+
+    return registrationId;
   } else {
     let userServiceValue = 'NEW';
     const userServiceTypeField = requestFields.userServiceType;
@@ -814,7 +815,7 @@ export const postBirthRecord = async ({
       throw new Error("Failed to get pre-registration ID from MOSIP response");
     }
 
-    insertTransaction(preRegId, event.token, birthCertificateNumber);
+    // insertTransaction(preRegId, event.token, birthCertificateNumber);
 
     const statusUrl =
       `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg/status/${preRegId}?statusCode=Pending_Appointment`;
@@ -947,6 +948,8 @@ export const postBirthRecord = async ({
           const notificationResult = await notificationRes.json();
           console.log("Notification sent successfully:", notificationResult);
         }
+
+        return preRegId;
       } catch (error) {
         console.log(
           `Error sending notification: ${error instanceof Error ? error.message : "Unknown error"}`,

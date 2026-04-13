@@ -160,6 +160,16 @@ export const env = cleanEnv(process.env, {
     devDefault: "minioadmin",
     desc: "MinIO password",
   }),
+
+  // Batch retry configuration
+  BATCH_RETRY_INTERVAL_MS: port({
+    default: 300000, // 5 minutes
+    desc: "Interval in milliseconds between batch retry job executions",
+  }),
+  BATCH_RETRY_LIMIT: port({
+    default: 10,
+    desc: "Maximum number of failed records to process in each batch retry job",
+  }),
 });
 
 

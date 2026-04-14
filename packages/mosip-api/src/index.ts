@@ -53,6 +53,7 @@ const AUTH_EXEMPT_ROUTES = new Set([
   "/prn/validator",
   "/prn/validate",
   "/favicon.ico",
+  "/debug/pending-records"
 ]);
 
 const initRoutes = (app: FastifyInstance) => {

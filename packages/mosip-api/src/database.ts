@@ -145,6 +145,7 @@ export interface FailedRecord {
   notification?: Record<string, unknown>;
   retryCount: number;
   lastError?: string;
+  nextRetryAt: string;
 }
 
 export const insertFailedRecord = (
@@ -181,7 +182,7 @@ export const insertFailedRecord = (
 export const getFailedRecordsForRetry = (limit = 10) => {
   const records = database
     .prepare(
-      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, created_at
+      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, next_retry_at, created_at
        FROM failed_records
        WHERE next_retry_at <= datetime('now')
        ORDER BY retry_count ASC, created_at ASC
@@ -198,6 +199,7 @@ export const getFailedRecordsForRetry = (limit = 10) => {
     notification: string | null;
     retry_count: number;
     last_error: string;
+    next_retry_at: string;
     created_at: string;
   }>;
 
@@ -212,6 +214,46 @@ export const getFailedRecordsForRetry = (limit = 10) => {
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,
+    nextRetryAt: record.next_retry_at,
+    createdAt: record.created_at,
+  }));
+};
+
+export const getAllFailedRecords = (limit = 10) => {
+  const records = database
+    .prepare(
+      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, next_retry_at, created_at
+       FROM failed_records
+       ORDER BY retry_count ASC, created_at ASC
+       LIMIT ?`,
+    )
+    .all(limit) as Array<{
+    id: string;
+    event_type: "birth" | "death";
+    tracking_id: string;
+    token: string;
+    request_fields: string;
+    audit: string;
+    meta_info: string | null;
+    notification: string | null;
+    retry_count: number;
+    last_error: string;
+    next_retry_at: string;
+    created_at: string;
+  }>;
+
+  return records.map((record) => ({
+    id: record.id,
+    eventType: record.event_type,
+    trackingId: record.tracking_id,
+    token: record.token,
+    requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
+    audit: JSON.parse(record.audit) as Record<string, unknown>,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    notification: record.notification ? JSON.parse(record.notification) : undefined,
+    retryCount: record.retry_count,
+    lastError: record.last_error,
+    nextRetryAt: record.next_retry_at,
     createdAt: record.created_at,
   }));
 };

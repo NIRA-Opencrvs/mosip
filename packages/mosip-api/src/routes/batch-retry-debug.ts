@@ -42,7 +42,7 @@ export const getPendingRecordsHandler = async (
     const { limit } = request.query as { limit?: string };
     const recordLimit = limit ? parseInt(limit) : env.BATCH_RETRY_LIMIT;
 
-    const records = db.getFailedRecordsForRetry(recordLimit);
+    const records = db.getAllFailedRecords(recordLimit);
 
     return reply.code(200).send({
       count: records.length,
@@ -52,6 +52,7 @@ export const getPendingRecordsHandler = async (
         trackingId: r.trackingId,
         retryCount: r.retryCount,
         lastError: r.lastError,
+        nextRetryAt: r.nextRetryAt,
         createdAt: r.createdAt,
       })),
     });

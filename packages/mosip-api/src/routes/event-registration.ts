@@ -109,6 +109,6 @@ export const registrationEventHandler = async (
       );
     }
 
-    return reply.code(500).send({ error: errorMessage });
+    return reply.code(202).send({});
   }
 };

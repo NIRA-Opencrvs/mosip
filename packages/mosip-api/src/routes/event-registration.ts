@@ -66,7 +66,7 @@ export const registrationEventHandler = async (
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error("Error occured in mosip-api :", error, errorMessage);
+    request.log.error({ trackingId }, "Error occurred in mosip-api: ", errorMessage);
 
     // Store failed records for retry
     const birthCertificateNumber = requestFields.birthCertificateNumber;
@@ -84,7 +84,7 @@ export const registrationEventHandler = async (
         errorMessage,
       );
       request.log.info(
-        { transactionId },
+        { trackingId },
         "Birth record stored for retry",
       );
     }
@@ -104,7 +104,7 @@ export const registrationEventHandler = async (
         errorMessage,
       );
       request.log.info(
-        { transactionId },
+        { trackingId },
         "Death record stored for retry",
       );
     }

@@ -377,6 +377,12 @@ async function uploadDocumentToMosip(
     }
 
     const result = await response.json();
+    
+  if (result?.errors?.length > 0) {
+      throw new Error(
+        `Document Upload failed: [${result.errors[0].errorCode}] ${result.errors[0].message}`,
+      );
+    }
 
     console.log(`Successfully uploaded document ${documentField.originalName}:`, result);
 
@@ -623,8 +629,13 @@ export const postBirthRecord = async ({
       );
     }
 
-    await createPacketResponse.json();
+    const createPacketApiResponce =await createPacketResponse.json();
 
+    if (createPacketApiResponce?.errors?.length > 0) {
+      throw new Error(
+        `createPacket failed: [${createPacketApiResponce.errors[0].errorCode}] ${createPacketApiResponce.errors[0].message}`,
+      );
+    }
     // packet manager: process packet API.
     const processPacketRequestBody = JSON.stringify(
       {
@@ -811,6 +822,12 @@ export const postBirthRecord = async ({
 
     console.log("Pre-registration creation response:", preRegId);
 
+    if (createData?.errors?.length > 0) {
+      throw new Error(
+        `Pre-registration failed: [${createData.errors[0].errorCode}] ${createData.errors[0].message}`,
+      );
+    }
+
     if (!preRegId) {
       throw new Error("Failed to get pre-registration ID from MOSIP response");
     }
@@ -836,6 +853,12 @@ export const postBirthRecord = async ({
 
     const statusResult = await statusRes.json();
     console.log("Status update response:", statusResult);
+
+    if (statusResult?.errors?.length > 0) {
+      throw new Error(
+        `Status update failed: [${statusResult.errors[0].errorCode}] ${statusResult.errors[0].message}`,
+      );
+    }
 
     const appointmentUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/appointment`;
 
@@ -872,6 +895,12 @@ export const postBirthRecord = async ({
     }
 
     const appointmentJson = await appointmentRes.json();
+
+     if (appointmentJson?.errors?.length > 0) {
+      throw new Error(
+        `Appointment booking failed: [${appointmentJson.errors[0].errorCode}] ${appointmentJson.errors[0].message}`,
+      );
+    }
     console.log("Appointment booking response:", JSON.stringify(appointmentJson, null, 2));
 
     if (preRegId) {

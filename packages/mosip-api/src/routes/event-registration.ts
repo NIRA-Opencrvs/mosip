@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import * as mosip from "../mosip-api";
 import { generateTransactionId } from "../registration-number";
-import { insertTransaction } from "../database";
+import { insertTransaction, insertFailedRecord } from "../database";
 import { MosipInteropPayload } from "@opencrvs/mosip/api";
 
 export type OpenCRVSRequest = FastifyRequest<{
@@ -30,13 +30,15 @@ export const registrationEventHandler = async (
 
     // insertTransaction(transactionId, token, birthCertificateNumber);
 
-    await mosip.postBirthRecord({
+    const regId = await mosip.postBirthRecord({
       event: { id: transactionId, trackingId, token },
       requestFields,
       audit,
       metaInfo,
       notification,
     });
+
+    insertTransaction(regId, token, birthCertificateNumber);
   }
 
   const deathCertificateNumber = requestFields.deathCertificateNumber;
@@ -46,8 +48,6 @@ export const registrationEventHandler = async (
 
     request.log.info({ transactionId }, "Event ID");
 
-    insertTransaction(transactionId, token, deathCertificateNumber);
-
     await mosip.postDeathRecord({
       event: { id: transactionId, trackingId },
       requestFields,
@@ -55,6 +55,8 @@ export const registrationEventHandler = async (
       metaInfo,
       notification,
     });
+
+    insertTransaction(transactionId, token, deathCertificateNumber);
   }
 
   return reply.code(202).send({});
@@ -64,8 +66,49 @@ export const registrationEventHandler = async (
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error("Error occured in mosip-api :",error, errorMessage);
+    request.log.error({ trackingId }, "Error occurred in mosip-api: ", errorMessage);
 
-    return reply.code(500).send({ error: errorMessage });
+    // Store failed records for retry
+    const birthCertificateNumber = requestFields.birthCertificateNumber;
+    if (birthCertificateNumber) {
+      const transactionId = generateTransactionId();
+      insertFailedRecord(
+        transactionId,
+        "birth",
+        trackingId,
+        token,
+        requestFields,
+        audit,
+        metaInfo,
+        notification,
+        errorMessage,
+      );
+      request.log.info(
+        { trackingId },
+        "Birth record stored for retry",
+      );
+    }
+
+    const deathCertificateNumber = requestFields.deathCertificateNumber;
+    if (deathCertificateNumber) {
+      const transactionId = trackingId + "-" + generateTransactionId();
+      insertFailedRecord(
+        transactionId,
+        "death",
+        trackingId,
+        token,
+        requestFields,
+        audit,
+        metaInfo,
+        notification,
+        errorMessage,
+      );
+      request.log.info(
+        { trackingId },
+        "Death record stored for retry",
+      );
+    }
+
+    return reply.code(202).send({});
   }
 };

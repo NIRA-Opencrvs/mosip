@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url } from "envalid";
+import { cleanEnv, str, port, url, num } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {
@@ -159,6 +159,16 @@ export const env = cleanEnv(process.env, {
   MINIO_ROOT_PASSWORD: str({
     devDefault: "minioadmin",
     desc: "MinIO password",
+  }),
+
+  // Batch retry configuration
+  BATCH_RETRY_INTERVAL_MS: num({
+    default: 300000, // 5 minutes
+    desc: "Interval in milliseconds between batch retry job executions",
+  }),
+  BATCH_RETRY_LIMIT: num({
+    default: 10,
+    desc: "Maximum number of failed records to process in each batch retry job",
   }),
 });
 

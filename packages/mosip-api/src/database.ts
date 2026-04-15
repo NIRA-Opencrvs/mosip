@@ -16,6 +16,24 @@ const DATABASE_SCHEMA = `
   ) STRICT
 `;
 
+const FAILED_RECORDS_SCHEMA = `
+  CREATE TABLE failed_records (
+    id TEXT PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    tracking_id TEXT NOT NULL,
+    token TEXT NOT NULL,
+    request_fields TEXT NOT NULL,
+    audit TEXT NOT NULL,
+    meta_info TEXT,
+    notification TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    next_retry_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  ) STRICT
+`;
+
 let database: Database;
 
 export const initSqlite = (path: string) => {
@@ -31,6 +49,16 @@ export const initSqlite = (path: string) => {
     database.exec(DATABASE_SCHEMA);
   }
 
+  const failedRecordsTableExists = database
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='failed_records'",
+    )
+    .get();
+
+  if (!failedRecordsTableExists) {
+    database.exec(FAILED_RECORDS_SCHEMA);
+  }
+
   return { wasCreated: !tableExists, wasConnected: tableExists, database };
 };
 
@@ -44,6 +72,27 @@ export const insertTransaction = (
       "INSERT INTO transactions (id, token, registration_number) VALUES (?, ?, ?)",
     )
     .run(id, token, registrationNumber);
+
+export const getTransaction = (id: string) => {
+  const transaction = database
+    .prepare(
+      "SELECT token, registration_number FROM transactions WHERE id = ?",
+    )
+    .get(id) as { token: string; registration_number: string } | undefined;
+
+  if (!transaction) {
+    throw new Error(`Transaction with id '${id}' not found.`);
+  }
+
+  return {
+    token: transaction.token,
+    registrationNumber: transaction.registration_number,
+  };
+};
+
+export const discardTransaction = (id: string) => {
+  database.prepare("DELETE FROM transactions WHERE id = ?").run(id);
+};
 
 export const getTransactionAndDiscard = (id: string) => {
   const remove = database
@@ -82,3 +131,177 @@ export const getAllTransactions = () => {
 };
 
 export const exit = () => database.close();
+
+// Failed Records Management
+
+export interface FailedRecord {
+  id: string;
+  eventType: "birth" | "death";
+  trackingId: string;
+  token: string;
+  requestFields: Record<string, unknown>;
+  audit: Record<string, unknown>;
+  metaInfo?: Record<string, unknown>;
+  notification?: Record<string, unknown>;
+  retryCount: number;
+  lastError?: string;
+  nextRetryAt: string;
+}
+
+export const insertFailedRecord = (
+  id: string,
+  eventType: "birth" | "death",
+  trackingId: string,
+  token: string,
+  requestFields: Record<string, unknown>,
+  audit: Record<string, unknown>,
+  metaInfo: Record<string, unknown> | undefined,
+  notification: Record<string, unknown> | undefined,
+  lastError: string,
+) => {
+  database
+    .prepare(
+      `INSERT INTO failed_records 
+       (id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, last_error, retry_count, next_retry_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    )
+    .run(
+      id,
+      eventType,
+      trackingId,
+      token,
+      JSON.stringify(requestFields),
+      JSON.stringify(audit),
+      metaInfo ? JSON.stringify(metaInfo) : null,
+      notification ? JSON.stringify(notification) : null,
+      lastError,
+      0,
+    );
+};
+
+export const getFailedRecordsForRetry = (limit = 10) => {
+  const records = database
+    .prepare(
+      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, next_retry_at, created_at
+       FROM failed_records
+       WHERE next_retry_at <= datetime('now')
+       ORDER BY retry_count ASC, created_at ASC
+       LIMIT ?`,
+    )
+    .all(limit) as Array<{
+    id: string;
+    event_type: "birth" | "death";
+    tracking_id: string;
+    token: string;
+    request_fields: string;
+    audit: string;
+    meta_info: string | null;
+    notification: string | null;
+    retry_count: number;
+    last_error: string;
+    next_retry_at: string;
+    created_at: string;
+  }>;
+
+  return records.map((record) => ({
+    id: record.id,
+    eventType: record.event_type,
+    trackingId: record.tracking_id,
+    token: record.token,
+    requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
+    audit: JSON.parse(record.audit) as Record<string, unknown>,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    notification: record.notification ? JSON.parse(record.notification) : undefined,
+    retryCount: record.retry_count,
+    lastError: record.last_error,
+    nextRetryAt: record.next_retry_at,
+    createdAt: record.created_at,
+  }));
+};
+
+export const getAllFailedRecords = (limit = 10) => {
+  const records = database
+    .prepare(
+      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, next_retry_at, created_at
+       FROM failed_records
+       ORDER BY retry_count ASC, created_at ASC
+       LIMIT ?`,
+    )
+    .all(limit) as Array<{
+    id: string;
+    event_type: "birth" | "death";
+    tracking_id: string;
+    token: string;
+    request_fields: string;
+    audit: string;
+    meta_info: string | null;
+    notification: string | null;
+    retry_count: number;
+    last_error: string;
+    next_retry_at: string;
+    created_at: string;
+  }>;
+
+  return records.map((record) => ({
+    id: record.id,
+    eventType: record.event_type,
+    trackingId: record.tracking_id,
+    token: record.token,
+    requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
+    audit: JSON.parse(record.audit) as Record<string, unknown>,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    notification: record.notification ? JSON.parse(record.notification) : undefined,
+    retryCount: record.retry_count,
+    lastError: record.last_error,
+    nextRetryAt: record.next_retry_at,
+    createdAt: record.created_at,
+  }));
+};
+
+export const incrementFailedRecordRetry = (id: string, error: string) => {
+  database
+    .prepare(
+      `UPDATE failed_records 
+       SET retry_count = retry_count + 1, last_error = ?, next_retry_at = datetime('now', '+' || CAST(POWER(2, retry_count) * 5 AS TEXT) || ' minutes'), updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(error, id);
+};
+
+export const removeFailedRecord = (id: string) => {
+  database.prepare("DELETE FROM failed_records WHERE id = ?").run(id);
+};
+
+export const removeFailedRecordAndReturnData = (id: string) => {
+  const removed = database
+    .prepare(
+      `DELETE FROM failed_records WHERE id = ? RETURNING event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count`,
+    )
+    .get(id) as {
+    event_type: "birth" | "death";
+    tracking_id: string;
+    token: string;
+    request_fields: string;
+    audit: string;
+    meta_info: string | null;
+    notification: string | null;
+    retry_count: number;
+  } | undefined;
+
+  if (!removed) {
+    return null;
+  }
+
+  return {
+    eventType: removed.event_type,
+    trackingId: removed.tracking_id,
+    token: removed.token,
+    requestFields: JSON.parse(removed.request_fields) as Record<string, unknown>,
+    audit: JSON.parse(removed.audit) as Record<string, unknown>,
+    metaInfo: removed.meta_info ? JSON.parse(removed.meta_info) : undefined,
+    notification: removed.notification
+      ? JSON.parse(removed.notification)
+      : undefined,
+    retryCount: removed.retry_count,
+  };
+};

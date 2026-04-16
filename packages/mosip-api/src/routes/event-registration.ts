@@ -19,59 +19,52 @@ export const registrationEventHandler = async (
   const token = request.headers.authorization!.split(" ")[1];
 
   request.log.info({ trackingId }, "Received record from OpenCRVS");
+
+  const transactionId = trackingId + '-' + generateTransactionId();
+
   try {
+    const birthCertificateNumber = requestFields.birthCertificateNumber;
 
-  const birthCertificateNumber = requestFields.birthCertificateNumber;
+    if (birthCertificateNumber) {
+      const regId = await mosip.postBirthRecord({
+        event: { id: transactionId, trackingId, token },
+        requestFields,
+        audit,
+        metaInfo,
+        notification,
+      });
 
-  if (birthCertificateNumber) {
-    const transactionId = generateTransactionId();
+      insertTransaction(regId, token, birthCertificateNumber);
+    }
 
-    // request.log.info({ transactionId }, "Event ID");
+    const deathCertificateNumber = requestFields.deathCertificateNumber;
 
-    // insertTransaction(transactionId, token, birthCertificateNumber);
+    if (deathCertificateNumber) {
+      request.log.info({ transactionId }, "Event ID");
 
-    const regId = await mosip.postBirthRecord({
-      event: { id: transactionId, trackingId, token },
-      requestFields,
-      audit,
-      metaInfo,
-      notification,
-    });
+      await mosip.postDeathRecord({
+        event: { id: transactionId, trackingId },
+        requestFields,
+        audit,
+        metaInfo,
+        notification,
+      });
 
-    insertTransaction(regId, token, birthCertificateNumber);
-  }
+      insertTransaction(transactionId, token, deathCertificateNumber);
+    }
 
-  const deathCertificateNumber = requestFields.deathCertificateNumber;
-
-  if (deathCertificateNumber) {
-    const transactionId = trackingId + '-' + generateTransactionId();
-
-    request.log.info({ transactionId }, "Event ID");
-
-    await mosip.postDeathRecord({
-      event: { id: transactionId, trackingId },
-      requestFields,
-      audit,
-      metaInfo,
-      notification,
-    });
-
-    insertTransaction(transactionId, token, deathCertificateNumber);
-  }
-
-  return reply.code(202).send({});
-   } catch (error) {
+    return reply.code(202).send({});
+  } catch (error) {
     const errorMessage =
       error instanceof Error
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error({ trackingId }, "Error occurred in mosip-api: ", errorMessage);
+    request.log.error({ transactionId }, "Error occurred in mosip-api: ", errorMessage);
 
     // Store failed records for retry
     const birthCertificateNumber = requestFields.birthCertificateNumber;
     if (birthCertificateNumber) {
-      const transactionId = generateTransactionId();
       insertFailedRecord(
         transactionId,
         "birth",
@@ -84,14 +77,13 @@ export const registrationEventHandler = async (
         errorMessage,
       );
       request.log.info(
-        { trackingId },
+        { transactionId },
         "Birth record stored for retry",
       );
     }
 
     const deathCertificateNumber = requestFields.deathCertificateNumber;
     if (deathCertificateNumber) {
-      const transactionId = trackingId + "-" + generateTransactionId();
       insertFailedRecord(
         transactionId,
         "death",
@@ -104,7 +96,7 @@ export const registrationEventHandler = async (
         errorMessage,
       );
       request.log.info(
-        { trackingId },
+        { transactionId },
         "Death record stored for retry",
       );
     }

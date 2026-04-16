@@ -56,7 +56,7 @@ export const processPendingRecords = async (
           db.removeFailedRecord(record.id);
           successful++;
           app.log.info(
-            { recordId: record.trackingId, eventType: "birth" },
+            { recordId: record.id, eventType: "birth" },
             "✅ Birth record successfully retried and removed",
           );
         } else if (record.eventType === "death") {
@@ -76,7 +76,7 @@ export const processPendingRecords = async (
           db.removeFailedRecord(record.id);
           successful++;
           app.log.info(
-            { recordId: record.trackingId, eventType: "death" },
+            { recordId: record.id, eventType: "death" },
             "✅ Death record successfully retried and removed",
           );
         }
@@ -91,7 +91,7 @@ export const processPendingRecords = async (
 
         app.log.error(
           {
-            recordId: record.trackingId,
+            recordId: record.id,
             eventType: record.eventType,
             retryCount: record.retryCount + 1,
             error: errorMessage,

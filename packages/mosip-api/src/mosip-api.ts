@@ -583,7 +583,7 @@ export const postBirthRecord = async ({
   const ageInMonths = getAgeInMonths(dob);
   const birthCertificateNumber = requestFields.birthCertificateNumber;
   if (ageInMonths <= 9) {
-    const registrationId = event.trackingId + '-' + event.id;
+    const registrationId = event.id;
     console.log({ registrationId }, "Event ID");
     // insertTransaction(registrationId, event.token, birthCertificateNumber);
 

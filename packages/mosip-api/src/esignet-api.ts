@@ -55,6 +55,58 @@ type OIDPUserInfo = {
   phone_number_verified?: boolean;
   address?: Partial<OIDPUserAddress>;
   updated_at?: number;
+
+  applicantForeignResidenceCountry?: string;
+  applicantForeignResidenceAddress?: string;
+  appResCountryUGA?: string;
+  applicantPlaceOfResidenceDistrict?: string;
+  applicantPlaceOfResidenceCounty?: string;
+  applicantPlaceOfResidenceSubCounty?: string;
+  applicantPlaceOfResidenceParish?: string;
+  applicantPlaceOfResidenceVillage?: string;
+
+  applicantPlaceOfBirthTimeOfBirth?: string;
+  applicantPlaceOfBirthWeightAtBirth?: string;
+  applicantPlaceOfBirthHealthFacility?: string;
+  appBirCountryUGA?: string;
+  applicantPlaceOfBirthDistrict?: string;
+  applicantPlaceOfBirthCounty?: string;
+  applicantPlaceOfBirthSubCounty?: string;
+  applicantPlaceOfBirthParish?: string;
+  applicantPlaceOfBirthVillage?: string;
+  applicantForeignBirthCountry?: string;
+  applicantForeignBirthAddress?: string;
+  disabilities?: string;
+  applicantLivingStatus?: string;
+
+  motherSurname?: string;
+  motherGivenName?: string;
+  motherOtherNames?: string;
+  motherNIN?: string;
+  motResCountryUGA?: string;
+  motherPlaceOfResidenceDistrict?: string;
+  motherPlaceOfResidenceCounty?: string;
+  motherPlaceOfResidenceSubCounty?: string;
+  motherPlaceOfResidenceParish?: string;
+  motherPlaceOfResidenceVillage?: string;
+  motherForeignResidenceCountry?: string;
+  motherForeignResidenceAddress?: string;
+  motherLivingStatus?: string;
+  applicantPlaceOfBirthParityOfChild?: string;
+
+  fatherSurname?: string;
+  fatherGivenName?: string;
+  fatherOtherNames?: string;
+  fatherNIN?: string;
+  fatResCountryUGA?: string;
+  fatherPlaceOfResidenceDistrict?: string;
+  fatherPlaceOfResidenceCounty?: string;
+  fatherPlaceOfResidenceSubCounty?: string;
+  fatherPlaceOfResidenceParish?: string;
+  fatherPlaceOfResidenceVillage?: string;
+  fatherForeignResidenceCountry?: string;
+  fatherForeignResidenceAddress?: string;
+  fatherLivingStatus?: string;
 };
 
 const JWT_EXPIRATION_TIME = "1h";
@@ -188,6 +240,7 @@ const getRoleFromRedirectUri = (redirectUri?: string) => {
   if (!redirectUri) return undefined;
   if (redirectUri.includes("/pages/mother")) return "mother";
   if (redirectUri.includes("/pages/father")) return "father";
+  if (redirectUri.includes("/pages/child")) return "child";
   return undefined;
 };
 
@@ -232,6 +285,10 @@ const pickUserInfo = async (
 
   const isAlienId = !!nationalId && nationalId.startsWith("A");
 
+  // Only map mother and father info when role is child (not mother or father)
+  const isChild = role === "child";
+  const isParent = role === "mother" || role === "father";
+
   return {
     name: {
       firstname: normalizeString(userInfo.given_name),
@@ -253,6 +310,83 @@ const pickUserInfo = async (
         idType: "NATIONAL_ID",
         nid: nationalId,
       }),
+    ...(isChild && {
+      foreignCountry: userInfo.applicantForeignBirthCountry,
+      foreignAddress: userInfo.applicantForeignBirthAddress,
+      country: userInfo.appBirCountryUGA,
+      district: userInfo.applicantPlaceOfBirthDistrict,
+      county: userInfo.applicantPlaceOfBirthCounty,
+      subCounty: userInfo.applicantPlaceOfBirthSubCounty,
+      parish: userInfo.applicantPlaceOfBirthParish,
+      village: userInfo.applicantPlaceOfBirthVillage,
+      healthFacility: userInfo.applicantPlaceOfBirthHealthFacility,
+      timeOfBirth: userInfo.applicantPlaceOfBirthTimeOfBirth,
+      weightAtBirth: userInfo.applicantPlaceOfBirthWeightAtBirth,
+      disabilities: userInfo.disabilities,
+
+      motherDataPresent: !!(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherNIN),
+      mother_name: {
+        firstname: normalizeString(userInfo.motherGivenName),
+        middlename: normalizeString(userInfo.motherOtherNames),
+        surname: normalizeString(userInfo.motherSurname),
+      },
+      ...(!!userInfo.motherNIN && userInfo.motherNIN.startsWith("A")
+      ? {
+        mother_idType: "ALIEN_ID",
+        mother_alienID: userInfo.motherNIN,
+      }
+      : {
+        mother_idType: "NATIONAL_ID",
+        mother_nid: userInfo.motherNIN,
+      }),
+      mother_foreignCountry: userInfo.motherForeignResidenceCountry,
+      mother_foreignAddress: userInfo.motherForeignResidenceAddress,
+      mother_country: userInfo.motResCountryUGA,
+      mother_district: userInfo.motherPlaceOfResidenceDistrict,
+      mother_county: userInfo.motherPlaceOfResidenceCounty,
+      mother_subCounty: userInfo.motherPlaceOfResidenceSubCounty,
+      mother_parish: userInfo.motherPlaceOfResidenceParish,
+      mother_village: userInfo.motherPlaceOfResidenceVillage,
+      mother_livingStatus: userInfo.motherLivingStatus,
+      mother_parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
+
+      fatherDataPresent: !!(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherNIN),
+      father_name: {
+        firstname: normalizeString(userInfo.fatherGivenName),
+        middlename: normalizeString(userInfo.fatherOtherNames),
+        surname: normalizeString(userInfo.fatherSurname),
+      },
+      ...(!!userInfo.fatherNIN && userInfo.fatherNIN.startsWith("A")
+      ? {
+        father_idType: "ALIEN_ID",
+        father_alienID: userInfo.fatherNIN,
+      }
+      : {
+        father_idType: "NATIONAL_ID",
+        father_nid: userInfo.fatherNIN,
+      }),
+      father_foreignCountry: userInfo.fatherForeignResidenceCountry,
+      father_foreignAddress: userInfo.fatherForeignResidenceAddress,
+      father_country: userInfo.fatResCountryUGA,
+      father_district: userInfo.fatherPlaceOfResidenceDistrict,
+      father_county: userInfo.fatherPlaceOfResidenceCounty,
+      father_subCounty: userInfo.fatherPlaceOfResidenceSubCounty,
+      father_parish: userInfo.fatherPlaceOfResidenceParish,
+      father_village: userInfo.fatherPlaceOfResidenceVillage,
+      father_livingStatus: userInfo.fatherLivingStatus
+    }),
+    ...(isParent && {
+      foreignCountry: userInfo.applicantForeignResidenceCountry,
+      foreignAddress: userInfo.applicantForeignResidenceAddress,
+      country: userInfo.appResCountryUGA,
+      district: userInfo.applicantPlaceOfResidenceDistrict,
+      county: userInfo.applicantPlaceOfResidenceCounty,
+      subCounty: userInfo.applicantPlaceOfResidenceSubCounty,
+      parish: userInfo.applicantPlaceOfResidenceParish,
+      village: userInfo.applicantPlaceOfResidenceVillage,
+      livingStatus: userInfo.applicantLivingStatus,
+      parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild
+    })
   };
 };
 

@@ -111,7 +111,8 @@ export const credentialIssuedHandler = async (
           actionId,
           registrationNumber,
           additionalDeclaration: {
-            "deceased.verified": "failed"  // Use "failed" for deactivated IDs (displays as "ID Verification Failed")
+            "deceased.verified": "failed",
+            "deceased.nidDeactivated": "Yes"  // Set by websub: disables name field when NID is deactivated
           },
         },
         { token },

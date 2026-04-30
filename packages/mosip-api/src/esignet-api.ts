@@ -324,11 +324,11 @@ const pickUserInfo = async (
       weightAtBirth: userInfo.applicantPlaceOfBirthWeightAtBirth,
       disabilities: userInfo.disabilities,
 
-      motherDataPresent: !!(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherNIN),
+      motherDataPresent: !!(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames || userInfo.motherNIN),
       mother_name: {
-        firstname: normalizeString(userInfo.motherGivenName),
-        middlename: normalizeString(userInfo.motherOtherNames),
-        surname: normalizeString(userInfo.motherSurname),
+        ...(userInfo.motherGivenName && { firstname: normalizeString(userInfo.motherGivenName) }),
+        ...(userInfo.motherOtherNames && { middlename: normalizeString(userInfo.motherOtherNames) }),
+        ...(userInfo.motherSurname && { surname: normalizeString(userInfo.motherSurname) }),
       },
       ...(userInfo.motherNIN
         ? userInfo.motherNIN.startsWith("A")
@@ -352,11 +352,11 @@ const pickUserInfo = async (
       mother_livingStatus: userInfo.motherLivingStatus,
       mother_parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
 
-      fatherDataPresent: !!(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherNIN),
+      fatherDataPresent: !!(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames || userInfo.fatherNIN),
       father_name: {
-        firstname: normalizeString(userInfo.fatherGivenName),
-        middlename: normalizeString(userInfo.fatherOtherNames),
-        surname: normalizeString(userInfo.fatherSurname),
+        ...(userInfo.fatherGivenName && { firstname: normalizeString(userInfo.fatherGivenName) }),
+        ...(userInfo.fatherOtherNames && { middlename: normalizeString(userInfo.fatherOtherNames) }),
+        ...(userInfo.fatherSurname && { surname: normalizeString(userInfo.fatherSurname) }),
       },
       ...(userInfo.fatherNIN
         ? userInfo.fatherNIN.startsWith("A")

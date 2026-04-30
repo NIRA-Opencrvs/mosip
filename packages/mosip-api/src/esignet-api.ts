@@ -325,11 +325,16 @@ const pickUserInfo = async (
       disabilities: userInfo.disabilities,
 
       motherDataPresent: !!(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames || userInfo.motherNIN),
-      mother_name: {
-        ...(userInfo.motherGivenName && { firstname: normalizeString(userInfo.motherGivenName) }),
-        ...(userInfo.motherOtherNames && { middlename: normalizeString(userInfo.motherOtherNames) }),
-        ...(userInfo.motherSurname && { surname: normalizeString(userInfo.motherSurname) }),
-      },
+      ...(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames
+        ? {
+            mother_name: {
+              ...(userInfo.motherGivenName && { firstname: normalizeString(userInfo.motherGivenName) }),
+              ...(userInfo.motherOtherNames && { middlename: normalizeString(userInfo.motherOtherNames) }),
+              ...(userInfo.motherSurname && { surname: normalizeString(userInfo.motherSurname) }),
+            }
+          }
+        : {}
+      ),
       ...(userInfo.motherNIN
         ? userInfo.motherNIN.startsWith("A")
           ? {
@@ -353,11 +358,16 @@ const pickUserInfo = async (
       mother_parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
 
       fatherDataPresent: !!(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames || userInfo.fatherNIN),
-      father_name: {
-        ...(userInfo.fatherGivenName && { firstname: normalizeString(userInfo.fatherGivenName) }),
-        ...(userInfo.fatherOtherNames && { middlename: normalizeString(userInfo.fatherOtherNames) }),
-        ...(userInfo.fatherSurname && { surname: normalizeString(userInfo.fatherSurname) }),
-      },
+      ...(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames
+        ? {
+            father_name: {
+              ...(userInfo.fatherGivenName && { firstname: normalizeString(userInfo.fatherGivenName) }),
+              ...(userInfo.fatherOtherNames && { middlename: normalizeString(userInfo.fatherOtherNames) }),
+              ...(userInfo.fatherSurname && { surname: normalizeString(userInfo.fatherSurname) }),
+            }
+          }
+        : {}
+      ),
       ...(userInfo.fatherNIN
         ? userInfo.fatherNIN.startsWith("A")
           ? {

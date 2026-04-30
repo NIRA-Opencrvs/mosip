@@ -118,6 +118,89 @@ export const processPendingRecords = async (
 };
 
 /**
+ * Force retry a single specific record by ID (bypasses nextRetryAt check)
+ * 
+ * @param app - Fastify instance for logging
+ * @param record - The failed record to process
+ * @returns Promise with success status and any error
+ */
+export const processSingleRecord = async (
+  app: FastifyInstance,
+  record: {
+    id: string;
+    eventType: "birth" | "death";
+    trackingId: string;
+    token: string;
+    requestFields: Record<string, unknown>;
+    audit: Record<string, unknown>;
+    metaInfo?: Record<string, unknown>;
+    notification?: Record<string, unknown>;
+  },
+) => {
+  try {
+    app.log.info({ recordId: record.id }, "Force retrying specific record");
+
+    if (record.eventType === "birth") {
+      const regId = await mosip.postBirthRecord({
+        event: {
+          id: record.id,
+          trackingId: record.trackingId,
+          token: record.token,
+        },
+        requestFields: record.requestFields,
+        audit: record.audit,
+        metaInfo: record.metaInfo,
+        notification: record.notification,
+      });
+
+      // Success - insert transaction and remove from failed records
+      const birthCertificateNumber = record.requestFields.birthCertificateNumber as string;
+      insertTransaction(regId, record.token, birthCertificateNumber);
+
+      db.removeFailedRecord(record.id);
+      app.log.info(
+        { recordId: record.id, eventType: "birth" },
+        "✅ Birth record force retried successfully",
+      );
+      return { success: true };
+    } else if (record.eventType === "death") {
+      await mosip.postDeathRecord({
+        event: { id: record.id, trackingId: record.trackingId },
+        requestFields: record.requestFields,
+        audit: record.audit,
+        metaInfo: record.metaInfo,
+        notification: record.notification,
+      });
+
+      // Success - insert transaction and remove from failed records
+      const deathCertificateNumber = record.requestFields.deathCertificateNumber as string;
+      insertTransaction(record.id, record.token, deathCertificateNumber);
+
+      db.removeFailedRecord(record.id);
+      app.log.info(
+        { recordId: record.id, eventType: "death" },
+        "✅ Death record force retried successfully",
+      );
+      return { success: true };
+    }
+
+    return { success: false, error: "Unknown event type" };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error during force retry";
+
+    // Increment retry count but don't update nextRetryAt for force retry
+    // db.incrementFailedRecordRetry(record.id, errorMessage);
+
+    app.log.error(
+      { recordId: record.id, eventType: record.eventType, error: errorMessage },
+      "⚠️  Record force retry failed",
+    );
+
+    return { success: false, error: errorMessage };
+  }
+};
+
+/**
  * Start a periodic batch retry job
  * @param app - Fastify instance
  * @param intervalMs - Interval in milliseconds (default: env.BATCH_RETRY_INTERVAL_MS)

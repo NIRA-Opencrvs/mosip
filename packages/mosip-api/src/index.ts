@@ -33,6 +33,7 @@ import {
   triggerBatchRetryHandler,
   getPendingRecordsHandler,
   deleteFailedRecordHandler,
+  forceRetryRecordHandler,
 } from "./routes/batch-retry-debug";
 
 const envToLogger = {
@@ -53,7 +54,10 @@ const AUTH_EXEMPT_ROUTES = new Set([
   "/prn/validator",
   "/prn/validate",
   "/favicon.ico",
-  "/debug/pending-records"
+  "/debug/pending-records",
+  "/debug/retry-batch",
+  "/debug/force-retry/:id",
+  "/debug/failed-records/:id"
 ]);
 
 const initRoutes = (app: FastifyInstance) => {
@@ -162,6 +166,12 @@ const initRoutes = (app: FastifyInstance) => {
     method: "DELETE",
     url: "/debug/failed-records/:id",
     handler: deleteFailedRecordHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/force-retry/:id",
+    handler: forceRetryRecordHandler,
   });
 
   registerPrnValidationRoutes(app);

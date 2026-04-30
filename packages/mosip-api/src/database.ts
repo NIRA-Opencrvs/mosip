@@ -258,6 +258,46 @@ export const getAllFailedRecords = (limit = 10) => {
   }));
 };
 
+export const getFailedRecordById = (id: string) => {
+  const record = database
+    .prepare(
+      `SELECT id, event_type, tracking_id, token, request_fields, audit, meta_info, notification, retry_count, last_error, next_retry_at, created_at
+       FROM failed_records
+       WHERE id = ?`,
+    )
+    .get(id) as {
+      id: string;
+      event_type: "birth" | "death";
+      tracking_id: string;
+      token: string;
+      request_fields: string;
+      audit: string;
+      meta_info: string | null;
+      notification: string | null;
+      retry_count: number;
+      last_error: string;
+      next_retry_at: string;
+      created_at: string;
+    } | undefined;
+
+  if (!record) return undefined;
+
+  return {
+    id: record.id,
+    eventType: record.event_type,
+    trackingId: record.tracking_id,
+    token: record.token,
+    requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
+    audit: JSON.parse(record.audit) as Record<string, unknown>,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    notification: record.notification ? JSON.parse(record.notification) : undefined,
+    retryCount: record.retry_count,
+    lastError: record.last_error,
+    nextRetryAt: record.next_retry_at,
+    createdAt: record.created_at,
+  };
+};
+
 export const incrementFailedRecordRetry = (id: string, error: string) => {
   database
     .prepare(

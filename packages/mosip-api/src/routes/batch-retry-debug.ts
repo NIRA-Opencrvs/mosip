@@ -1,7 +1,49 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { processPendingRecords } from "../batch-retry";
+import { processPendingRecords, processSingleRecord } from "../batch-retry";
 import * as db from "../database";
 import { env } from "../constants";
+
+/**
+ * Force retry a specific record by ID (bypasses nextRetryAt check)
+ */
+export const forceRetryRecordHandler = async (
+  request: FastifyRequest<{
+    Params: { id: string };
+  }>,
+  reply: FastifyReply,
+) => {
+  try {
+    const { id } = request.params;
+
+    const record = db.getFailedRecordById(id);
+    if (!record) {
+      return reply.code(404).send({ error: "Record not found" });
+    }
+
+    const result = await processSingleRecord(request.server, record);
+
+    if (result.success) {
+      return reply.code(200).send({
+        message: "Record force retried successfully",
+        recordId: id,
+      });
+    } else {
+      return reply.code(500).send({
+        message: "Record force retry failed",
+        recordId: id,
+        error: result.error,
+      });
+    }
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Error forcing retry of record";
+
+    request.log.error("Error in force retry:", error);
+    return reply.code(500).send({ error: errorMessage });
+  }
+};
 
 /**
  * Manual trigger for batch retry job (useful for testing or manual intervention)

@@ -330,15 +330,17 @@ const pickUserInfo = async (
         middlename: normalizeString(userInfo.motherOtherNames),
         surname: normalizeString(userInfo.motherSurname),
       },
-      ...(!!userInfo.motherNIN && userInfo.motherNIN.startsWith("A")
-      ? {
-        mother_idType: "ALIEN_ID",
-        mother_alienID: userInfo.motherNIN,
-      }
-      : {
-        mother_idType: "NATIONAL_ID",
-        mother_nid: userInfo.motherNIN,
-      }),
+      ...(userInfo.motherNIN
+        ? userInfo.motherNIN.startsWith("A")
+          ? {
+              mother_idType: "ALIEN_ID",
+              mother_alienID: userInfo.motherNIN,
+            }
+          : {
+              mother_idType: "NATIONAL_ID",
+              mother_nid: userInfo.motherNIN,
+            }
+        : {}),
       mother_foreignCountry: userInfo.motherForeignResidenceCountry,
       mother_foreignAddress: userInfo.motherForeignResidenceAddress,
       mother_country: userInfo.motResCountryUGA,
@@ -356,15 +358,17 @@ const pickUserInfo = async (
         middlename: normalizeString(userInfo.fatherOtherNames),
         surname: normalizeString(userInfo.fatherSurname),
       },
-      ...(!!userInfo.fatherNIN && userInfo.fatherNIN.startsWith("A")
-      ? {
-        father_idType: "ALIEN_ID",
-        father_alienID: userInfo.fatherNIN,
-      }
-      : {
-        father_idType: "NATIONAL_ID",
-        father_nid: userInfo.fatherNIN,
-      }),
+      ...(userInfo.fatherNIN
+        ? userInfo.fatherNIN.startsWith("A")
+          ? {
+              father_idType: "ALIEN_ID",
+              father_alienID: userInfo.fatherNIN,
+            }
+          : {
+              father_idType: "NATIONAL_ID",
+              father_nid: userInfo.fatherNIN,
+            }
+        : {}),
       father_foreignCountry: userInfo.fatherForeignResidenceCountry,
       father_foreignAddress: userInfo.fatherForeignResidenceAddress,
       father_country: userInfo.fatResCountryUGA,

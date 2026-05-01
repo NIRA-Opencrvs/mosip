@@ -328,9 +328,9 @@ const pickUserInfo = async (
       ...(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames
         ? {
             mother_name: {
-              ...(userInfo.motherGivenName && { firstname: normalizeString(userInfo.motherGivenName) }),
-              ...(userInfo.motherOtherNames && { middlename: normalizeString(userInfo.motherOtherNames) }),
-              ...(userInfo.motherSurname && { surname: normalizeString(userInfo.motherSurname) }),
+              firstname: normalizeString(userInfo.motherGivenName),
+              middlename: normalizeString(userInfo.motherOtherNames),
+              surname: normalizeString(userInfo.motherSurname)
             }
           }
         : {}
@@ -361,9 +361,9 @@ const pickUserInfo = async (
       ...(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames
         ? {
             father_name: {
-              ...(userInfo.fatherGivenName && { firstname: normalizeString(userInfo.fatherGivenName) }),
-              ...(userInfo.fatherOtherNames && { middlename: normalizeString(userInfo.fatherOtherNames) }),
-              ...(userInfo.fatherSurname && { surname: normalizeString(userInfo.fatherSurname) }),
+              firstname: normalizeString(userInfo.fatherGivenName),
+              middlename: normalizeString(userInfo.fatherOtherNames),
+              surname: normalizeString(userInfo.fatherSurname)
             }
           }
         : {}

@@ -236,12 +236,22 @@ const normalizeString = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-const getRoleFromRedirectUri = (redirectUri?: string) => {
+const PAGE_ROLE_MAP: Record<string, string> = {
+  "/pages/mother": "mother",
+  "/pages/father": "father",
+  "/pages/child": "child",
+  "/pages/adoptiveMother": "mother",
+  "/pages/adoptiveFather": "father",
+  "/pages/guardianMother": "mother",
+  "/pages/guardianFather": "father",
+};
+
+const getRoleFromRedirectUri = (redirectUri?: string): string | undefined => {
   if (!redirectUri) return undefined;
-  if (redirectUri.includes("/pages/mother")) return "mother";
-  if (redirectUri.includes("/pages/father")) return "father";
-  if (redirectUri.includes("/pages/child")) return "child";
-  return undefined;
+  const match = Object.keys(PAGE_ROLE_MAP).find((page) =>
+    redirectUri.includes(page)
+  );
+  return match ? PAGE_ROLE_MAP[match] : undefined;
 };
 
 const ALIEN_ID_PREFIXES_REGEX = /^(AM|AF)/i;

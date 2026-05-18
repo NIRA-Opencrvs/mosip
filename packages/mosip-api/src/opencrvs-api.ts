@@ -98,7 +98,8 @@ export const rejectRegistration = async (
       await client.event.actions.register.reject.mutate({
         transactionId: `mosip-interop-${crypto.randomUUID()}`,
         eventId,
-        actionId
+        actionId,
+        keepAssignment: true
       });
 
       await client.event.actions.reject.request.mutate({

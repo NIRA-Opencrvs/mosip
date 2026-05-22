@@ -130,6 +130,27 @@ export const getAllTransactions = () => {
   }>;
 };
 
+export const updateTransactionToken = (id: string, newToken: string) => {
+  const result = database
+    .prepare("UPDATE transactions SET token = ? WHERE id = ?")
+    .run(newToken, id);
+
+  if (result.changes === 0) {
+    throw new Error(`Transaction with id '${id}' not found.`);
+  }
+};
+
+export const updateAllTransactionsToken = (newToken: string) => {
+  const result = database
+    .prepare("UPDATE transactions SET token = ?")
+    .run(newToken);
+
+  return {
+    updatedCount: result.changes,
+    newToken,
+  };
+};
+
 export const exit = () => database.close();
 
 // Failed Records Management

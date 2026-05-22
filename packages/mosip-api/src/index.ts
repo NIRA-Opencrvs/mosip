@@ -24,6 +24,9 @@ import { initWebSub } from "./websub/subscribe";
 import {
   deleteTransactionHandler,
   getAllTransactionsHandler,
+  replaceTokenByIdHandler,
+  replaceAllTokensHandler,
+  ReplaceTokenSchema,
 } from "./routes/debug-sqlite";
 import { verifyHandler, VerifySchema } from "./routes/verify";
 import { initializeIDSchema } from "./mosip-api";
@@ -145,6 +148,24 @@ const initRoutes = (app: FastifyInstance) => {
     method: "DELETE",
     url: "/debug/transactions/:id",
     handler: deleteTransactionHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "PATCH",
+    url: "/debug/transactions/:id",
+    handler: replaceTokenByIdHandler,
+    schema: {
+      body: ReplaceTokenSchema,
+    },
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "PATCH",
+    url: "/debug/transactions/replace-token",
+    handler: replaceAllTokensHandler,
+    schema: {
+      body: ReplaceTokenSchema,
+    },
   });
 
   /*

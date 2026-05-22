@@ -1,8 +1,14 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { getAllTransactions, getTransactionAndDiscard } from "../database";
+import {
+  getAllTransactions,
+  getTransactionAndDiscard,
+  updateTransactionToken,
+  updateAllTransactionsToken,
+} from "../database";
 import { SCOPES } from "@opencrvs/toolkit/scopes";
 import { TokenPayload } from "./websub-credential-issued";
 import { decode } from "jsonwebtoken";
+import { z } from "zod";
 
 interface AuthenticatedUser {
   scope: string[];
@@ -81,5 +87,71 @@ export const deleteTransactionHandler = async (
       error instanceof Error ? error.message : "Unknown error occurred";
 
     reply.status(404).send({ error: message });
+  }
+};
+
+export const ReplaceTokenSchema = z.object({
+  token: z.string().describe("The new token to replace the existing one"),
+});
+
+export type ReplaceTokenRequest = FastifyRequest<{
+  Params: { id: string };
+  Body: z.infer<typeof ReplaceTokenSchema>;
+}>;
+
+export const replaceTokenByIdHandler = async (
+  request: ReplaceTokenRequest,
+  reply: FastifyReply,
+) => {
+  const { scope } = request.user as AuthenticatedUser;
+
+  if (!isAllowedToDelete(scope)) {
+    return reply.status(403).send({
+      error: "You do not have permission to access this resource.",
+    });
+  }
+
+  const { id } = request.params;
+  const { token } = request.body;
+
+  try {
+    updateTransactionToken(id, token);
+
+    reply.status(200).send({ success: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+
+    reply.status(404).send({ error: message });
+  }
+};
+
+export type ReplaceAllTokensRequest = FastifyRequest<{
+  Body: z.infer<typeof ReplaceTokenSchema>;
+}>;
+
+export const replaceAllTokensHandler = async (
+  request: ReplaceAllTokensRequest,
+  reply: FastifyReply,
+) => {
+  const { scope } = request.user as AuthenticatedUser;
+
+  if (!isAllowedToDelete(scope)) {
+    return reply.status(403).send({
+      error: "You do not have permission to access this resource.",
+    });
+  }
+
+  const { token } = request.body;
+
+  try {
+    const result = updateAllTransactionsToken(token);
+
+    reply.status(200).send(result);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+
+    reply.status(500).send({ error: message });
   }
 };

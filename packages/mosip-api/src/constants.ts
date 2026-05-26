@@ -114,6 +114,11 @@ export const env = cleanEnv(process.env, {
     devDefault: "http://localhost:20240/idauthentication/v1/auth",
   }),
 
+  AUTH_HOST: url({
+    devDefault: "http://localhost:7070",
+    desc: "Opencrvs Auth Service URL",
+  }),
+
   // MOSIP Crypto encrypt
   ENCRYPT_CERT_PATH: str({
     devDefault: join(__dirname, "../../../certs/ida-partner.crt"),

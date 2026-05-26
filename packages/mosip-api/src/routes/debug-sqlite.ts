@@ -4,11 +4,13 @@ import {
   getTransactionAndDiscard,
   updateTransactionToken,
   updateAllTransactionsToken,
+  getTransaction,
 } from "../database";
 import { SCOPES } from "@opencrvs/toolkit/scopes";
 import { TokenPayload } from "./websub-credential-issued";
 import { decode } from "jsonwebtoken";
 import { z } from "zod";
+import { env } from "../constants";
 
 interface AuthenticatedUser {
   scope: string[];
@@ -112,17 +114,63 @@ export const replaceTokenByIdHandler = async (
   }
 
   const { id } = request.params;
-  const { token } = request.body;
+  const { token: inputToken } = request.body;
 
   try {
-    updateTransactionToken(id, token);
+    // Fetch the existing token from the database
+    const existingTransaction = getTransaction(id);
+    const { eventId, actionId } = decode(
+      existingTransaction.token,
+    ) as TokenPayload;
+
+    // Build the token exchange URL
+    const tokenExchangeUrl = new URL(`${env.AUTH_HOST}/token`);
+    tokenExchangeUrl.searchParams.set(
+      "grant_type",
+      "urn:opencrvs:oauth:grant-type:token-exchange",
+    );
+    tokenExchangeUrl.searchParams.set("subject_token", inputToken);
+    tokenExchangeUrl.searchParams.set(
+      "subject_token_type",
+      "urn:ietf:params:oauth:token-type:access_token",
+    );
+    tokenExchangeUrl.searchParams.set(
+      "requested_token_type",
+      "urn:opencrvs:oauth:token-type:single_record_token",
+    );
+    tokenExchangeUrl.searchParams.set("event_id", eventId);
+    tokenExchangeUrl.searchParams.set("action_id", actionId);
+
+    // Fetch the new token from AUTH service
+    const tokenResponse = await fetch(tokenExchangeUrl.toString(), {
+      method: "POST",
+    });
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text();
+      throw new Error(
+        `Failed to exchange token: ${tokenResponse.status} - ${error}`,
+      );
+    }
+
+    const tokenData = await tokenResponse.json();
+    const newToken = tokenData.access_token;
+
+    if (!newToken) {
+      throw new Error(
+        "No access token received from auth service in token exchange response",
+      );
+    }
+
+    // Update the database with the new token
+    updateTransactionToken(id, newToken);
 
     reply.status(200).send({ success: true });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error occurred";
 
-    reply.status(404).send({ error: message });
+    reply.status(400).send({ error: message });
   }
 };
 

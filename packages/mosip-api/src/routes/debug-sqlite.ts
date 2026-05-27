@@ -123,6 +123,7 @@ export const replaceTokenByIdHandler = async (
       existingTransaction.token,
     ) as TokenPayload;
 
+    console.log("Auth url:", env.AUTH_HOST);
     // Build the token exchange URL
     const tokenExchangeUrl = new URL(`${env.AUTH_HOST}/token`);
     tokenExchangeUrl.searchParams.set(
@@ -167,6 +168,7 @@ export const replaceTokenByIdHandler = async (
 
     reply.status(200).send({ success: true });
   } catch (error) {
+    console.error("Error replacing token:", error);
     const message =
       error instanceof Error ? error.message : "Unknown error occurred";
 

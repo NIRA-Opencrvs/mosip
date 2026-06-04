@@ -495,7 +495,7 @@ const pickUserInfo = async (
         : {}),
       ...(userInfo.fatherForeignResidenceCountry || fatherResidenceAdministrativeArea
         ? {
-            father_address: userInfo.motherForeignResidenceAddress
+            father_address: userInfo.fatherForeignResidenceCountry
               ? {
                   country: userInfo.fatherForeignResidenceCountry,
                   addressType: "INTERNATIONAL",

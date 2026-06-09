@@ -217,10 +217,56 @@ export const fetchLocationFromFHIR = <T = any>(
     });
 };
 
-const searchLocationFromFHIR = (name: string) =>
-  fetchLocationFromFHIR<fhir2.Bundle>(
-    `/locations?${new URLSearchParams({ name, type: "ADMIN_STRUCTURE" })}`,
+const searchLocationFromFHIR = (name: string) => {
+  return fetchLocationFromFHIR<fhir2.Bundle>(
+    `locations?${new URLSearchParams({ name, type: "ADMIN_STRUCTURE" })}`,
   );
+};
+
+const getLocationAdministrativeArea = async (
+  locationName: string,
+): Promise<string | undefined> => {
+  try {
+    const searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
+    
+    const bundle = await searchLocationFromFHIR(searchName);
+    
+    if (!Array.isArray((bundle as any)?.entry)) {
+      return undefined;
+    }
+
+    // Find exact match by name in the results
+    const exactMatch = (bundle as any).entry.find(
+      (entry: any) => entry?.resource?.name === locationName
+    );
+
+    if (exactMatch?.resource?.id) {
+      return exactMatch.resource.id;
+    }
+
+    // Fallback to first entry if no exact match
+    const firstEntry = (bundle as any).entry[0];
+    const location = firstEntry?.resource;
+    if (typeof location?.id === "string") {
+      console.log(
+        "Using first result for",
+        locationName,
+        "with id:",
+        location.id
+      );
+      return location.id;
+    }
+
+    return undefined;
+  } catch (error) {
+    console.error(
+      "Failed to resolve ADMIN_STRUCTURE location id for",
+      locationName,
+      error,
+    );
+    return undefined;
+  }
+};
 
 function formatDate(dateString: string, formatStr = "PP") {
   const date = parse(dateString, "dd/MM/yyyy", new Date());
@@ -299,6 +345,29 @@ const pickUserInfo = async (
   const isChild = role === "child";
   const isParent = role === "mother" || role === "father";
 
+  const resolveAdministrativeArea = async (locationName?: string) => {
+    const normalizedName = normalizeString(locationName);
+    return normalizedName
+      ? await getLocationAdministrativeArea(normalizedName)
+      : undefined;
+  };
+  let childResidenceAdministrativeArea: string | undefined;
+  let motherResidenceAdministrativeArea: string | undefined;
+  let fatherResidenceAdministrativeArea: string | undefined;
+  let parentResidenceAdministrativeArea: string | undefined;
+
+  if (isChild) {
+    [childResidenceAdministrativeArea,motherResidenceAdministrativeArea, fatherResidenceAdministrativeArea] = await Promise.all([
+      resolveAdministrativeArea(userInfo.applicantPlaceOfBirthVillage),
+      resolveAdministrativeArea(userInfo.motherPlaceOfResidenceVillage),
+      resolveAdministrativeArea(userInfo.fatherPlaceOfResidenceVillage),
+    ]);
+  } else if (isParent) {
+    parentResidenceAdministrativeArea = await resolveAdministrativeArea(
+      userInfo.applicantPlaceOfResidenceVillage
+    );
+  }
+
   return {
     name: {
       firstname: normalizeString(userInfo.given_name),
@@ -321,7 +390,24 @@ const pickUserInfo = async (
         nid: nationalId,
       }),
     ...(isChild && {
-      foreignCountry: userInfo.applicantForeignBirthCountry,
+      ...(userInfo.applicantForeignBirthCountry || childResidenceAdministrativeArea
+        ? {
+            address: userInfo.applicantForeignBirthCountry
+              ? {
+                  country: userInfo.applicantForeignBirthCountry,
+                  addressType: "INTERNATIONAL",
+                  streetLevelDetails: {
+                    cityOrTown: userInfo.applicantForeignBirthAddress,
+                  },
+                }
+              : {
+                  country: "UGA",
+                  addressType: "DOMESTIC",
+                  administrativeArea: childResidenceAdministrativeArea,
+                  streetLevelDetails: {},
+                },
+          }
+        : {}),
       foreignAddress: userInfo.applicantForeignBirthAddress,
       country: userInfo.appBirCountryUGA,
       district: userInfo.applicantPlaceOfBirthDistrict,
@@ -356,7 +442,25 @@ const pickUserInfo = async (
               mother_nid: userInfo.motherNIN,
             }
         : {}),
-      mother_foreignCountry: userInfo.motherForeignResidenceCountry,
+
+    ...(userInfo.motherForeignResidenceCountry || motherResidenceAdministrativeArea
+        ? {
+            mother_address: userInfo.motherForeignResidenceCountry
+              ? {
+                  country: userInfo.motherForeignResidenceAddress,
+                  addressType: "INTERNATIONAL",
+                  streetLevelDetails: {
+                    cityOrTown: userInfo.motherForeignResidenceAddress,
+                  },
+                }
+              : {
+                  country: "UGA",
+                  addressType: "DOMESTIC",
+                  administrativeArea: motherResidenceAdministrativeArea,
+                  streetLevelDetails: {},
+                },
+          }
+        : {}),
       mother_foreignAddress: userInfo.motherForeignResidenceAddress,
       mother_country: userInfo.motResCountryUGA,
       mother_district: userInfo.motherPlaceOfResidenceDistrict,
@@ -389,7 +493,24 @@ const pickUserInfo = async (
               father_nid: userInfo.fatherNIN,
             }
         : {}),
-      father_foreignCountry: userInfo.fatherForeignResidenceCountry,
+      ...(userInfo.fatherForeignResidenceCountry || fatherResidenceAdministrativeArea
+        ? {
+            father_address: userInfo.fatherForeignResidenceCountry
+              ? {
+                  country: userInfo.fatherForeignResidenceCountry,
+                  addressType: "INTERNATIONAL",
+                  streetLevelDetails: {
+                    cityOrTown: userInfo.fatherForeignResidenceAddress,
+                  },
+                }
+              : {
+                  country: "UGA",
+                  addressType: "DOMESTIC",
+                  administrativeArea: fatherResidenceAdministrativeArea,
+                  streetLevelDetails: {},
+                },
+          }
+        : {}),
       father_foreignAddress: userInfo.fatherForeignResidenceAddress,
       father_country: userInfo.fatResCountryUGA,
       father_district: userInfo.fatherPlaceOfResidenceDistrict,
@@ -407,10 +528,28 @@ const pickUserInfo = async (
       county: userInfo.applicantPlaceOfResidenceCounty,
       subCounty: userInfo.applicantPlaceOfResidenceSubCounty,
       parish: userInfo.applicantPlaceOfResidenceParish,
-      village: userInfo.applicantPlaceOfResidenceVillage,
+      ...(userInfo.applicantForeignResidenceCountry || parentResidenceAdministrativeArea
+        ? {
+            address: userInfo.applicantForeignResidenceCountry
+              ? {
+                  country: userInfo.applicantForeignResidenceCountry,
+                  addressType: "INTERNATIONAL",
+                  streetLevelDetails: {
+                    cityOrTown: userInfo.applicantForeignResidenceAddress,
+                  },
+                }
+              : {
+                  country: "UGA",
+                  addressType: "DOMESTIC",
+                  administrativeArea: parentResidenceAdministrativeArea,
+                  streetLevelDetails: {},
+                },
+          }
+        : {}),
       livingStatus: userInfo.applicantLivingStatus,
-      parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild
-    })
+      parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
+    }
+  )
   };
 };
 

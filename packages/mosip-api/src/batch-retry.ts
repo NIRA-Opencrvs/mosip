@@ -68,10 +68,15 @@ export const processPendingRecords = async (
             notification: record.notification,
           });
 
+          const result = record.metaInfo?.reduce((acc, item) => {
+              acc[item.label] = item.value;
+              return acc;
+          }, {} as Record<string, string>);
+
           // Success - insert transaction and remove from failed records
           const deathCertificateNumber =
             record.requestFields.deathCertificateNumber as string;
-          insertTransaction(record.id, record.token, deathCertificateNumber);
+          insertTransaction(record.id, record.token, deathCertificateNumber, result?.actionType, result?.requestedId);
 
           db.removeFailedRecord(record.id);
           successful++;
@@ -133,7 +138,7 @@ export const processSingleRecord = async (
     token: string;
     requestFields: Record<string, unknown>;
     audit: Record<string, unknown>;
-    metaInfo?: Record<string, unknown>;
+    metaInfo?: Array<{label: string, value: string}> ;
     notification?: Record<string, unknown>;
   },
 ) => {
@@ -172,9 +177,16 @@ export const processSingleRecord = async (
         notification: record.notification,
       });
 
+      const metaData  = record.metaInfo;
+
+      const result = record.metaInfo?.reduce((acc, item) => {
+              acc[item.label] = item.value;
+              return acc;
+          }, {} as Record<string, string>);
+
       // Success - insert transaction and remove from failed records
       const deathCertificateNumber = record.requestFields.deathCertificateNumber as string;
-      insertTransaction(record.id, record.token, deathCertificateNumber);
+      insertTransaction(record.id, record.token, deathCertificateNumber, result?.actionType, result?.requestedId);
 
       db.removeFailedRecord(record.id);
       app.log.info(

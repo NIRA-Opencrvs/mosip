@@ -22,6 +22,7 @@ export const CredentialIssuedSchema = z.object({
     data: z.object({
       registrationId: z.string(),
       registrationType: z.string().optional(),
+      actionType: z.string().optional(),
       credential: z.string(),
       credentialType: z.literal("vercred"),
       protectionKey: z.string(),
@@ -76,7 +77,7 @@ export const credentialIssuedHandler = async (
     //   .pop()!;
     const transactionId = request.body.event.data.registrationId;
 
-    const { token, registrationNumber } =
+    const { token, registrationNumber, actionType, requestedId } =
       getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
@@ -114,6 +115,9 @@ export const credentialIssuedHandler = async (
             "deceased.verified": "failed",
             "deceased.nidDeactivated": "Yes"  // Set by websub: disables name field when NID is deactivated
           },
+          ...(actionType === 'CORRECTION' && {
+            requestedId
+          }),
         },
         { token },
       );

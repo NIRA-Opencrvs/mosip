@@ -12,6 +12,8 @@ const DATABASE_SCHEMA = `
     id TEXT PRIMARY KEY,
     token TEXT UNIQUE NOT NULL,
     registration_number TEXT UNIQUE NOT NULL,
+    action_type TEXT,
+    requested_id TEXT, 
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   ) STRICT
 `;
@@ -66,19 +68,21 @@ export const insertTransaction = (
   id: string,
   token: string,
   registrationNumber: string,
+  actionType?: string,
+  requestedId?: string
 ) =>
   database
     .prepare(
-      "INSERT INTO transactions (id, token, registration_number) VALUES (?, ?, ?)",
+      "INSERT INTO transactions (id, token, registration_number, action_type, requested_id) VALUES (?, ?, ?, ?, ?)",
     )
-    .run(id, token, registrationNumber);
+    .run(id, token, registrationNumber, actionType ?? null, requestedId ?? null);
 
 export const getTransaction = (id: string) => {
   const transaction = database
     .prepare(
-      "SELECT token, registration_number FROM transactions WHERE id = ?",
+      "SELECT token, registration_number, action_type, requested_id FROM transactions WHERE id = ?",
     )
-    .get(id) as { token: string; registration_number: string } | undefined;
+    .get(id) as { token: string; registration_number: string; action_type?: string; requested_id?: string} | undefined;
 
   if (!transaction) {
     throw new Error(`Transaction with id '${id}' not found.`);
@@ -87,6 +91,8 @@ export const getTransaction = (id: string) => {
   return {
     token: transaction.token,
     registrationNumber: transaction.registration_number,
+    actionType: transaction.action_type,
+    requestedId: transaction.requested_id
   };
 };
 
@@ -231,7 +237,7 @@ export const getFailedRecordsForRetry = (limit = 10) => {
     token: record.token,
     requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
     audit: JSON.parse(record.audit) as Record<string, unknown>,
-    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) as Array<{label: string, value: string}> : undefined,
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,
@@ -310,7 +316,7 @@ export const getFailedRecordById = (id: string) => {
     token: record.token,
     requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
     audit: JSON.parse(record.audit) as Record<string, unknown>,
-    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    metaInfo: record.meta_info ? JSON.parse(record.meta_info) as Array<{label: string, value: string}>  : undefined,
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,

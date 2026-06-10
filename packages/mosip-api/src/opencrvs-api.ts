@@ -33,12 +33,14 @@ export const confirmRegistration = (
     nationalId,
     registrationNumber,
     additionalDeclaration,
+    requestedId
   }: {
     eventId: string;
     actionId: string;
     nationalId?: string;
     registrationNumber: string;
     additionalDeclaration?: Record<string, string>;
+    requestedId?: string;
   },
   { token }: { token: string },
 ) => {
@@ -71,6 +73,13 @@ export const confirmRegistration = (
     : additionalDeclaration
       ? additionalDeclaration
       : undefined;
+
+  if(requestedId!==undefined){
+    return client.event.actions.correction.approve.accept.mutate({
+      requestId: requestedId,
+      ...basePayload,
+    });
+  }
 
   return client.event.actions.register.accept.mutate({
     ...basePayload,

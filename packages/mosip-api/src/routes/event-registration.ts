@@ -50,7 +50,14 @@ export const registrationEventHandler = async (
         notification,
       });
 
-      insertTransaction(transactionId, token, deathCertificateNumber);
+
+      const parsedArray = JSON.parse(metaInfo.metaData) as Array<{label: string, value: string}>;
+      const result = parsedArray.reduce((acc, item) => {
+          acc[item.label] = item.value;
+          return acc;
+      }, {} as Record<string, string>);
+      
+      insertTransaction(transactionId, token, deathCertificateNumber, result.actionType, result.requestedId);
     }
 
     return reply.code(202).send({});

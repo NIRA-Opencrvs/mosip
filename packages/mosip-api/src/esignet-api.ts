@@ -200,7 +200,9 @@ export const fetchLocationFromFHIR = <T = any>(
   method = "GET",
   body: string | undefined = undefined,
 ): Promise<T> => {
-  return fetch(`${env.OPENCRVS_GATEWAY_URL}/${suffix}`, {
+  const url =`http://gateway:7070/${suffix}`
+  console.log("url for location api : ",url)
+  return fetch(`${url}`, {
     method,
     headers: {
       "Content-Type": "application/json",

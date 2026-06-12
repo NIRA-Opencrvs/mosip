@@ -229,6 +229,7 @@ const getLocationAdministrativeArea = async (
   try {
     const searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
     
+    console.log("Calling fetch location api for :",locationName)
     const bundle = await searchLocationFromFHIR(searchName);
     
     if (!Array.isArray((bundle as any)?.entry)) {
@@ -241,6 +242,7 @@ const getLocationAdministrativeArea = async (
     );
 
     if (exactMatch?.resource?.id) {
+      console.log("Resolved Id for ",locationName," is :",exactMatch.resource.id)
       return exactMatch.resource.id;
     }
 
@@ -362,6 +364,7 @@ const pickUserInfo = async (
       resolveAdministrativeArea(userInfo.motherPlaceOfResidenceVillage),
       resolveAdministrativeArea(userInfo.fatherPlaceOfResidenceVillage),
     ]);
+    console.log("Fetched village for child ,mother,father ",childResidenceAdministrativeArea,motherResidenceAdministrativeArea),fatherResidenceAdministrativeArea
   } else if (isParent) {
     parentResidenceAdministrativeArea = await resolveAdministrativeArea(
       userInfo.applicantPlaceOfResidenceVillage

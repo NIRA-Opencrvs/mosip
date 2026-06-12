@@ -211,6 +211,7 @@ export const fetchLocationFromFHIR = <T = any>(
       return response.json();
     })
     .catch((error) => {
+      console.log("Error in calling  api :",`${error.message}`)
       return Promise.reject(
         new Error(`Fetch Location from FHIR request failed: ${error.message}`),
       );
@@ -231,6 +232,8 @@ const getLocationAdministrativeArea = async (
     
     console.log("Calling fetch location api for :",locationName)
     const bundle = await searchLocationFromFHIR(searchName);
+
+    console.log("Bundle responce :",bundle)
     
     if (!Array.isArray((bundle as any)?.entry)) {
       return undefined;
@@ -364,7 +367,7 @@ const pickUserInfo = async (
       resolveAdministrativeArea(userInfo.motherPlaceOfResidenceVillage),
       resolveAdministrativeArea(userInfo.fatherPlaceOfResidenceVillage),
     ]);
-    console.log("Fetched village for child ,mother,father ",childResidenceAdministrativeArea,motherResidenceAdministrativeArea),fatherResidenceAdministrativeArea
+    console.log("Fetched village for child ,mother,father ",childResidenceAdministrativeArea,motherResidenceAdministrativeArea,fatherResidenceAdministrativeArea)
   } else if (isParent) {
     parentResidenceAdministrativeArea = await resolveAdministrativeArea(
       userInfo.applicantPlaceOfResidenceVillage

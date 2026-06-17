@@ -1095,6 +1095,18 @@ export const postDeathRecord = async ({
   }
 };
 
+type VerifyNidResponse = {
+  responseTime: string;
+  response: {
+    authStatus: boolean;
+    authToken: string | null;
+  };
+  errors?: {
+    errorCode: string;
+    errorMessage: string;
+  }[];
+};
+
 export const verifyNid = async ({
   nid,
   name,
@@ -1106,7 +1118,7 @@ export const verifyNid = async ({
   dob: string | undefined;
   name: { language: string; value: string }[] | undefined;
   gender: { language: string; value: string }[] | undefined;
-}) => {
+}): Promise<VerifyNidResponse> => {
   const authenticator = new MOSIPAuthenticator({
     partnerApiKey: env.PARTNER_APIKEY,
     partnerMispLk: env.PARTNER_MISP_LK,
@@ -1135,8 +1147,5 @@ export const verifyNid = async ({
     throw new Error(`Error in MOSIP Authenticator: ${await response.text()}`);
   }
 
-  return (await response.json()) as {
-    responseTime: string;
-    response: { authStatus: boolean; authToken: string };
-  };
+  return (await response.json()) as VerifyNidResponse;
 };

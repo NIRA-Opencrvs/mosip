@@ -26,11 +26,11 @@ export const verifyHandler = async (
   request: OpenCRVSRequest,
   reply: FastifyReply,
 ) => {
-  const {
-    response: { authStatus },
-  } = await verifyNid({
+  const result = await verifyNid({
     nid: request.body.nid,
-    dob: request.body.dob? formatDate(request.body.dob, "dd/MM/yyyy"):undefined,
+    dob: request.body.dob
+      ? formatDate(request.body.dob, "dd/MM/yyyy")
+      : undefined,
     name: [
       {
         language: "eng",
@@ -42,13 +42,26 @@ export const verifyHandler = async (
       : undefined,
   });
 
+  const authStatus = result.response.authStatus;
+
+  const isDeceasedError = result.errors?.some(
+    ({ errorCode }) => errorCode === "IDA-MLC-032",
+  );
+
+  const verified = authStatus || isDeceasedError;
+
   const transactionId = request.body.transactionId;
 
   if (transactionId) {
-    request.log.info({ transactionId, authStatus });
+    request.log.info({
+      transactionId,
+      authStatus,
+      errors: result.errors,
+      verified,
+    });
   }
 
-  return reply.code(200).send(authStatus ? "verified" : "failed");
+  return reply.code(200).send(verified ? "verified" : "failed");
 };
 
 function formatDate(dateString: string, formatStr = "dd/MM/yyyy") {

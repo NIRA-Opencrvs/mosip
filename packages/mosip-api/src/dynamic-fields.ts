@@ -74,6 +74,26 @@ export const findCodeForFieldValue = (fieldName: string, label?: string | null):
   return needle;
 };
 
+export const findCodeForFieldValueStrict = (fieldName: string, label?: string | null): string | undefined => {
+  if (!label) return undefined;
+
+  const needle = String(label).trim();
+  const needleLower = needle.toLowerCase();
+
+  const valueToCodeMap = dynamicFieldsMap.get(fieldName) || dynamicFieldsMap.get(fieldName.toLowerCase());
+
+  if (valueToCodeMap) {
+    if (valueToCodeMap.has(needle)) {
+      return valueToCodeMap.get(needle);
+    }
+    if (valueToCodeMap.has(needleLower)) {
+      return valueToCodeMap.get(needleLower);
+    }
+  }
+
+  return undefined;
+};
+
 
 export const pickFirstString = (value: any): string | undefined => {
   if (value == null) return undefined;

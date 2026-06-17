@@ -17,6 +17,7 @@ import { isValid, format, Locale, parse } from "date-fns";
 import { enGB } from "date-fns/locale/en-GB";
 import { fr } from "date-fns/locale/fr";
 import fs from "node:fs";
+import { findCodeForFieldValue, findCodeForFieldValueStrict } from "./dynamic-fields";
 
 const OIDP_CLIENT_PRIVATE_KEY = fs
   .readFileSync(env.OIDP_CLIENT_PRIVATE_KEY_PATH)
@@ -201,7 +202,7 @@ export const fetchLocationFromFHIR = <T = any>(
   body: string | undefined = undefined,
 ): Promise<T> => {
   const url =`http://gateway:7070/${suffix}`
-  console.log("url for location api : ",url)
+  // console.log("url for location api : ",url)
   return fetch(`${url}`, {
     method,
     headers: {
@@ -231,11 +232,7 @@ const getLocationAdministrativeArea = async (
 ): Promise<string | undefined> => {
   try {
     const searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
-    
-    console.log("Calling fetch location api for :",locationName)
     const bundle = await searchLocationFromFHIR(searchName);
-
-    console.log("Bundle responce :",bundle)
     
     if (!Array.isArray((bundle as any)?.entry)) {
       return undefined;
@@ -376,6 +373,24 @@ const pickUserInfo = async (
     );
   }
 
+  // Precompute strict country code lookups (undefined if no mapping exists)
+  const applicantForeignBirthCountryCode = findCodeForFieldValueStrict(
+    "countries",
+    userInfo.applicantForeignBirthCountry,
+  );
+  const motherForeignResidenceCountryCode = findCodeForFieldValueStrict(
+    "countries",
+    userInfo.motherForeignResidenceCountry,
+  );
+  const fatherForeignResidenceCountryCode = findCodeForFieldValueStrict(
+    "countries",
+    userInfo.fatherForeignResidenceCountry,
+  );
+  const applicantForeignResidenceCountryCode = findCodeForFieldValueStrict(
+    "countries",
+    userInfo.applicantForeignResidenceCountry,
+  );
+
   return {
     name: {
       firstname: normalizeString(userInfo.given_name),
@@ -398,22 +413,24 @@ const pickUserInfo = async (
         nid: nationalId,
       }),
     ...(isChild && {
-      ...(userInfo.applicantForeignBirthCountry || childResidenceAdministrativeArea
+      ...(applicantForeignBirthCountryCode
         ? {
-            address: userInfo.applicantForeignBirthCountry
-              ? {
-                  country: userInfo.applicantForeignBirthCountry,
-                  addressType: "INTERNATIONAL",
-                  streetLevelDetails: {
-                    cityOrTown: userInfo.applicantForeignBirthAddress,
-                  },
-                }
-              : {
-                  country: "UGA",
-                  addressType: "DOMESTIC",
-                  administrativeArea: childResidenceAdministrativeArea,
-                  streetLevelDetails: {},
-                },
+            address: {
+              country: applicantForeignBirthCountryCode,
+              addressType: "INTERNATIONAL",
+              streetLevelDetails: {
+                cityOrTown: userInfo.applicantForeignBirthAddress,
+              },
+            },
+          }
+        : childResidenceAdministrativeArea
+        ? {
+            address: {
+              country: "UGA",
+              addressType: "DOMESTIC",
+              administrativeArea: childResidenceAdministrativeArea,
+              streetLevelDetails: {},
+            },
           }
         : {}),
       foreignAddress: userInfo.applicantForeignBirthAddress,
@@ -451,22 +468,24 @@ const pickUserInfo = async (
             }
         : {}),
 
-    ...(userInfo.motherForeignResidenceCountry || motherResidenceAdministrativeArea
+    ...(motherForeignResidenceCountryCode
         ? {
-            mother_address: userInfo.motherForeignResidenceCountry
-              ? {
-                  country: userInfo.motherForeignResidenceAddress,
-                  addressType: "INTERNATIONAL",
-                  streetLevelDetails: {
-                    cityOrTown: userInfo.motherForeignResidenceAddress,
-                  },
-                }
-              : {
-                  country: "UGA",
-                  addressType: "DOMESTIC",
-                  administrativeArea: motherResidenceAdministrativeArea,
-                  streetLevelDetails: {},
-                },
+            mother_address: {
+              country: motherForeignResidenceCountryCode,
+              addressType: "INTERNATIONAL",
+              streetLevelDetails: {
+                cityOrTown: userInfo.motherForeignResidenceAddress,
+              },
+            },
+          }
+        : motherResidenceAdministrativeArea
+        ? {
+            mother_address: {
+              country: "UGA",
+              addressType: "DOMESTIC",
+              administrativeArea: motherResidenceAdministrativeArea,
+              streetLevelDetails: {},
+            },
           }
         : {}),
       mother_foreignAddress: userInfo.motherForeignResidenceAddress,
@@ -501,22 +520,24 @@ const pickUserInfo = async (
               father_nid: userInfo.fatherNIN,
             }
         : {}),
-      ...(userInfo.fatherForeignResidenceCountry || fatherResidenceAdministrativeArea
+      ...(fatherForeignResidenceCountryCode
         ? {
-            father_address: userInfo.fatherForeignResidenceCountry
-              ? {
-                  country: userInfo.fatherForeignResidenceCountry,
-                  addressType: "INTERNATIONAL",
-                  streetLevelDetails: {
-                    cityOrTown: userInfo.fatherForeignResidenceAddress,
-                  },
-                }
-              : {
-                  country: "UGA",
-                  addressType: "DOMESTIC",
-                  administrativeArea: fatherResidenceAdministrativeArea,
-                  streetLevelDetails: {},
-                },
+            father_address: {
+              country: fatherForeignResidenceCountryCode,
+              addressType: "INTERNATIONAL",
+              streetLevelDetails: {
+                cityOrTown: userInfo.fatherForeignResidenceAddress,
+              },
+            },
+          }
+        : fatherResidenceAdministrativeArea
+        ? {
+            father_address: {
+              country: "UGA",
+              addressType: "DOMESTIC",
+              administrativeArea: fatherResidenceAdministrativeArea,
+              streetLevelDetails: {},
+            },
           }
         : {}),
       father_foreignAddress: userInfo.fatherForeignResidenceAddress,
@@ -536,22 +557,24 @@ const pickUserInfo = async (
       county: userInfo.applicantPlaceOfResidenceCounty,
       subCounty: userInfo.applicantPlaceOfResidenceSubCounty,
       parish: userInfo.applicantPlaceOfResidenceParish,
-      ...(userInfo.applicantForeignResidenceCountry || parentResidenceAdministrativeArea
+      ...(applicantForeignResidenceCountryCode
         ? {
-            address: userInfo.applicantForeignResidenceCountry
-              ? {
-                  country: userInfo.applicantForeignResidenceCountry,
-                  addressType: "INTERNATIONAL",
-                  streetLevelDetails: {
-                    cityOrTown: userInfo.applicantForeignResidenceAddress,
-                  },
-                }
-              : {
-                  country: "UGA",
-                  addressType: "DOMESTIC",
-                  administrativeArea: parentResidenceAdministrativeArea,
-                  streetLevelDetails: {},
-                },
+            address: {
+              country: applicantForeignResidenceCountryCode,
+              addressType: "INTERNATIONAL",
+              streetLevelDetails: {
+                cityOrTown: userInfo.applicantForeignResidenceAddress,
+              },
+            },
+          }
+        : parentResidenceAdministrativeArea
+        ? {
+            address: {
+              country: "UGA",
+              addressType: "DOMESTIC",
+              administrativeArea: parentResidenceAdministrativeArea,
+              streetLevelDetails: {},
+            },
           }
         : {}),
       livingStatus: userInfo.applicantLivingStatus,

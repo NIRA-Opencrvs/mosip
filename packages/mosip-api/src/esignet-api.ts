@@ -108,6 +108,8 @@ type OIDPUserInfo = {
   fatherForeignResidenceCountry?: string;
   fatherForeignResidenceAddress?: string;
   fatherLivingStatus?: string;
+
+  placeOfBirth?: string;
 };
 
 const JWT_EXPIRATION_TIME = "1h";
@@ -413,7 +415,7 @@ const pickUserInfo = async (
         nid: nationalId,
       }),
     ...(isChild && {
-      ...(applicantForeignBirthCountryCode
+      ...(applicantForeignBirthCountryCode && userInfo.applicantForeignBirthAddress
         ? {
             address: {
               country: applicantForeignBirthCountryCode,
@@ -422,6 +424,7 @@ const pickUserInfo = async (
                 cityOrTown: userInfo.applicantForeignBirthAddress,
               },
             },
+            placeOfBirth : 'COMMUNITY'
           }
         : childResidenceAdministrativeArea
         ? {
@@ -431,6 +434,7 @@ const pickUserInfo = async (
               administrativeArea: childResidenceAdministrativeArea,
               streetLevelDetails: {},
             },
+            placeOfBirth : 'COMMUNITY'
           }
         : {}),
       foreignAddress: userInfo.applicantForeignBirthAddress,
@@ -468,7 +472,7 @@ const pickUserInfo = async (
             }
         : {}),
 
-    ...(motherForeignResidenceCountryCode
+    ...(motherForeignResidenceCountryCode && userInfo.motherForeignResidenceAddress
         ? {
             mother_address: {
               country: motherForeignResidenceCountryCode,
@@ -520,7 +524,7 @@ const pickUserInfo = async (
               father_nid: userInfo.fatherNIN,
             }
         : {}),
-      ...(fatherForeignResidenceCountryCode
+      ...(fatherForeignResidenceCountryCode && userInfo.fatherForeignResidenceAddress
         ? {
             father_address: {
               country: fatherForeignResidenceCountryCode,
@@ -557,7 +561,7 @@ const pickUserInfo = async (
       county: userInfo.applicantPlaceOfResidenceCounty,
       subCounty: userInfo.applicantPlaceOfResidenceSubCounty,
       parish: userInfo.applicantPlaceOfResidenceParish,
-      ...(applicantForeignResidenceCountryCode
+      ...(applicantForeignResidenceCountryCode && userInfo.applicantForeignResidenceAddress
         ? {
             address: {
               country: applicantForeignResidenceCountryCode,

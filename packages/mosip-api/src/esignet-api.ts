@@ -204,7 +204,7 @@ export const fetchLocationFromFHIR = <T = any>(
   body: string | undefined = undefined,
 ): Promise<T> => {
   const url =`http://gateway:7070/${suffix}`
-  // console.log("url for location api : ",url)
+
   return fetch(`${url}`, {
     method,
     headers: {
@@ -233,7 +233,11 @@ const getLocationAdministrativeArea = async (
   locationName: string,
 ): Promise<string | undefined> => {
   try {
-    const searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
+    let searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
+
+    if (searchName.includes("/")) {
+      searchName = searchName.split("/")[0].trim();
+    }
     const bundle = await searchLocationFromFHIR(searchName);
     
     if (!Array.isArray((bundle as any)?.entry)) {

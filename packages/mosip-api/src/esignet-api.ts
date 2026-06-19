@@ -251,19 +251,6 @@ const getLocationAdministrativeArea = async (
       return exactMatch.resource.id;
     }
 
-    // Fallback to first entry if no exact match
-    const firstEntry = (bundle as any).entry[0];
-    const location = firstEntry?.resource;
-    if (typeof location?.id === "string") {
-      console.log(
-        "Using first result for",
-        locationName,
-        "with id:",
-        location.id
-      );
-      return location.id;
-    }
-
     return undefined;
   } catch (error) {
     console.error(

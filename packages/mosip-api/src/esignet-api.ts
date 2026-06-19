@@ -233,11 +233,8 @@ const getLocationAdministrativeArea = async (
   locationName: string,
 ): Promise<string | undefined> => {
   try {
-    let searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").trim();
 
-    if (searchName.includes("/")) {
-      searchName = searchName.split("/")[0].trim();
-    }
+    let searchName = locationName.replace(/\s*\([^)]*\)\s*/g, "").split(/[^a-zA-Z\s.]/)[0].trim();
     const bundle = await searchLocationFromFHIR(searchName);
     
     if (!Array.isArray((bundle as any)?.entry)) {

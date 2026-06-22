@@ -400,7 +400,7 @@ const pickUserInfo = async (
       }
       : {
         idType: "NATIONAL_ID",
-        nid: nationalId,
+        nid: nationalId
       }),
     ...(isChild && {
       ...(applicantForeignBirthCountryCode && userInfo.applicantForeignBirthAddress
@@ -437,7 +437,7 @@ const pickUserInfo = async (
       weightAtBirth: userInfo.applicantPlaceOfBirthWeightAtBirth,
       disabilities: userInfo.disabilities,
 
-      motherDataPresent: !!(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames || userInfo.motherNIN),
+      motherDataPresent: !!(( userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames || userInfo.motherNIN) && userInfo.motherNIN),
       ...(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames
         ? {
             mother_name: {
@@ -453,10 +453,11 @@ const pickUserInfo = async (
           ? {
               mother_idType: "ALIEN_ID",
               mother_alienID: userInfo.motherNIN,
+              mother_isForeingnerCheckbox: "true"
             }
           : {
               mother_idType: "NATIONAL_ID",
-              mother_nid: userInfo.motherNIN,
+              mother_nid: userInfo.motherNIN
             }
         : {}),
 
@@ -490,7 +491,7 @@ const pickUserInfo = async (
       mother_livingStatus: userInfo.motherLivingStatus,
       mother_parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
 
-      fatherDataPresent: !!(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames || userInfo.fatherNIN),
+      fatherDataPresent: !!((userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames || userInfo.fatherNIN) && userInfo.fatherNIN),
       ...(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames
         ? {
             father_name: {
@@ -506,6 +507,7 @@ const pickUserInfo = async (
           ? {
               father_idType: "ALIEN_ID",
               father_alienID: userInfo.fatherNIN,
+              father_isForeingnerCheckbox: "true"
             }
           : {
               father_idType: "NATIONAL_ID",

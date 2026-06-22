@@ -437,7 +437,7 @@ const pickUserInfo = async (
       weightAtBirth: userInfo.applicantPlaceOfBirthWeightAtBirth,
       disabilities: userInfo.disabilities,
 
-      motherDataPresent: !!(( userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames || userInfo.motherNIN) && userInfo.motherNIN),
+      motherDataPresent: !!(( userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames) && userInfo.motherNIN),
       ...(userInfo.motherSurname || userInfo.motherGivenName || userInfo.motherOtherNames
         ? {
             mother_name: {
@@ -491,7 +491,7 @@ const pickUserInfo = async (
       mother_livingStatus: userInfo.motherLivingStatus,
       mother_parityOfChild: userInfo.applicantPlaceOfBirthParityOfChild,
 
-      fatherDataPresent: !!((userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames || userInfo.fatherNIN) && userInfo.fatherNIN),
+      fatherDataPresent: !!((userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames) && userInfo.fatherNIN),
       ...(userInfo.fatherSurname || userInfo.fatherGivenName || userInfo.fatherOtherNames
         ? {
             father_name: {

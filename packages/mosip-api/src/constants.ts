@@ -175,6 +175,11 @@ export const env = cleanEnv(process.env, {
     default: 10,
     desc: "Maximum number of failed records to process in each batch retry job",
   }),
+
+  WEB_SUB_BATCH_INTERVAL_MS: num({
+    default: 1800000, // 30 minutes
+    desc: "Interval in milliseconds between websub initalization batch job executions",
+  }),
 });
 
 

@@ -318,9 +318,11 @@ async function run() {
 
   await initializeWebSub(app);
 
+  const intervalTime = env.WEB_SUB_BATCH_INTERVAL_MS
+
   const webSubInterval = setInterval(async () => {
     await initializeWebSub(app);
-  }, 30 * 60 * 1000);
+  }, intervalTime);
 
   // Start batch retry job (runs every 5 minutes by default)
   const retryJobInterval = startBatchRetryJob(app);

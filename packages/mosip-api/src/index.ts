@@ -276,6 +276,16 @@ export const buildFastify = async () => {
   return app;
 };
 
+async function initializeWebSub(app: FastifyInstance) {
+  try {
+    const { topic } = await initWebSub();
+    app.log.info(`WebSub subscription initialized for topic '${topic}' ✅`);
+  } catch (error) {
+    app.log.error("Failed to initialize WebSub subscription:", error);
+  }
+}
+
+
 async function run() {
   const app = await buildFastify();
 
@@ -306,14 +316,18 @@ async function run() {
     `Swagger UI running at http://${env.HOST}:${env.PORT}/documentation ✅`,
   );
 
-  const { topic } = await initWebSub();
-  app.log.info(`WebSub subscription initialized for topic '${topic}' ✅`);
+  await initializeWebSub(app);
+
+  const webSubInterval = setInterval(async () => {
+    await initializeWebSub(app);
+  }, 30 * 60 * 1000);
 
   // Start batch retry job (runs every 5 minutes by default)
   const retryJobInterval = startBatchRetryJob(app);
 
   process.on("exit", () => {
     clearInterval(retryJobInterval);
+    clearInterval(webSubInterval);
     database.close();
     app.close();
   });

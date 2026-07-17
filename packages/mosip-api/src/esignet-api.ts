@@ -56,6 +56,7 @@ type OIDPUserInfo = {
   phone_number_verified?: boolean;
   address?: Partial<OIDPUserAddress>;
   updated_at?: number;
+  nationality?:string;
 
   applicantForeignResidenceCountry?: string;
   applicantForeignResidenceAddress?: string;
@@ -388,6 +389,7 @@ const pickUserInfo = async (
       surname: normalizeString(userInfo.surname),
     },
     gender,
+    ...(isAlienId?{}:{nationality:'Ugandan'}),
     ...(userInfo.birthdate && {
       dobUnknown: null,
       birthDate: formatDate(userInfo.birthdate, "yyyy-MM-dd"),

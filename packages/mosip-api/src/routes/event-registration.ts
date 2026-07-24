@@ -24,7 +24,9 @@ export const registrationEventHandler = async (
 
   try {
     const birthCertificateNumber = requestFields.birthCertificateNumber;
-
+          
+    console.log("Birth Registration no. : ",birthCertificateNumber)
+    console.log("Requested fiedls are : ",requestFields)
     if (birthCertificateNumber) {
       const regId = await mosip.postBirthRecord({
         event: { id: transactionId, trackingId, token },
@@ -67,7 +69,7 @@ export const registrationEventHandler = async (
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error({ transactionId }, "Error occurred in mosip-api: ", errorMessage);
+    request.log.error("Error occured in mosip-api :", error, errorMessage);
 
     // Store failed records for retry
     const birthCertificateNumber = requestFields.birthCertificateNumber;

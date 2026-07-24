@@ -86,6 +86,26 @@ type OIDPUserInfo = {
   phone_number_verified?: boolean;
   address?: Partial<OIDPUserAddress>;
   updated_at?: number;
+  village?: string;
+  applicantForeignResidenceCountry?: string;
+  applicantForeignResidenceAddress?: string;
+  motherPlaceOfResidenceVillage?: string;
+  fatherPlaceOfResidenceVillage?: string;
+  applicantPlaceOfResidenceVillage?: string;
+  applicantPlaceOfBirthVillage?: string;
+  nationality?: string;
+  applicantForeignBirthCountry?: string;
+  applicantForeignBirthAddress?: string;
+  motherNIN?: string;
+  motherGivenName?: string;
+  motherOtherNames?: string;
+  motherSurname?: string;
+  mother_alienID?: string;
+  fatherGivenName?: string;
+  fatherOtherNames?: string;
+  fatherSurname?: string;
+  fatherNIN?: string;
+
 };
 
 /**
@@ -126,6 +146,25 @@ app.get("/oidc/userinfo", {
       given_name: identity.firstName,
       surname: identity.familyName,
       other_names: identity.middleName,
+      village: identity.village,  
+      applicantForeignResidenceCountry : identity.applicantForeignResidenceCountry,
+      applicantForeignBirthCountry : identity.applicantForeignBirthCountry,
+      applicantForeignResidenceAddress : identity.applicantForeignResidenceAddress,
+      motherPlaceOfResidenceVillage:identity.motherPlaceOfResidenceVillage,
+      fatherPlaceOfResidenceVillage: identity.fatherPlaceOfResidenceVillage,
+      applicantPlaceOfResidenceVillage: identity.applicantPlaceOfResidenceVillage,
+      applicantPlaceOfBirthVillage: identity.applicantPlaceOfBirthVillage,
+      nationality: identity.nationality,
+      motherNIN: identity.motherNIN,
+      motherGivenName: identity.motherGivenName,
+      motherOtherNames: identity.motherOtherNames,
+      motherSurname: identity.motherSurname,
+      mother_alienID: identity.mother_alienID,
+      fatherNIN: identity.fatherNIN,
+      fatherGivenName: identity.fatherGivenName,
+      fatherOtherNames: identity.fatherOtherNames,
+      fatherSurname: identity.fatherSurname,
+      applicantForeignBirthAddress: identity.applicantForeignBirthAddress,
       nickname: "",
       idType:"NATIONAL_ID",
       nin:nid,

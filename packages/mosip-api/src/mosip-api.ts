@@ -101,8 +101,14 @@ async function downloadDocumentFromMinIO(documentPath: string): Promise<Buffer |
 }
 
 export async function getMosipAuthToken(authType: AuthType) {
+
   // Use different URLs based on authType
-  const response = await fetch(env.MOSIP_AUTH_URL, {
+    const authUrl = authType === "WEBSUB"
+    ? "http://localhost:20240/v1/authmanager/authenticate/clientidsecretkey"
+    : env.MOSIP_AUTH_URL;
+
+  // Use different URLs based on authType
+  const response = await fetch(authUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -572,7 +578,7 @@ export const postBirthRecord = async ({
 }) => {
   const authToken = await getMosipAuthToken("PACKET");
   
-  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
+  // const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
 
   const documentFields = await extractDocumentFields(requestFields);
 
@@ -589,7 +595,7 @@ export const postBirthRecord = async ({
 
     const { documents, ...newRequestBody } = requestFields;
     
-    const processedDocuments = await extractAndProcessDocumentsForPacket(documents, authToken);
+    // const processedDocuments = await extractAndProcessDocumentsForPacket(documents, authToken);
     
     const requestBody = JSON.stringify(
       {
@@ -602,10 +608,10 @@ export const postBirthRecord = async ({
           offlineMode: false,
           process: "CRVS_NEW",
           source: "OPENCRVS",
-          schemaVersion: schemaVersionString,
+          schemaVersion: "8.4",
           fields: newRequestBody,
           metaInfo: metaInfo,
-          documents: processedDocuments,
+          // documents: processedDocuments,
           audits: Array.of(audit),
           schemaJson: schemaJson,
         },
@@ -693,7 +699,7 @@ export const postBirthRecord = async ({
     }
 
     const identity: Record<string, any> = {
-      IDSchemaVersion: idSchemaVersion,
+      IDSchemaVersion: 8.4,
       userService: userServiceValue,
       userServiceType: [{ language: 'eng', value: 'CBBI' }],
       trackingId: [{ language: 'eng', value: event.trackingId }]
@@ -1007,7 +1013,7 @@ export const postDeathRecord = async ({
   metaInfo: MosipInteropPayload["metaInfo"];
   notification: MosipInteropPayload["notification"];
 }) => {
-  const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
+  // const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
   const authToken = await getMosipAuthToken("PACKET");
   const deactivatePacketRequestBody = JSON.stringify(
     {
@@ -1020,7 +1026,7 @@ export const postDeathRecord = async ({
         offlineMode: false,
         process: "DEACTIVATED",
         source: "REGISTRATION_CLIENT",
-        schemaVersion: schemaVersionString,
+        schemaVersion: "8.4",
         fields: requestFields,
         metaInfo: metaInfo,
         audits: Array.of(audit),

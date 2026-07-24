@@ -204,7 +204,7 @@ export const fetchLocationFromFHIR = <T = any>(
   method = "GET",
   body: string | undefined = undefined,
 ): Promise<T> => {
-  const url =`http://gateway:7070/${suffix}`
+  const url =`http://localhost:7070/${suffix}`
 
   return fetch(`${url}`, {
     method,
@@ -309,6 +309,7 @@ const pickUserInfo = async (
   service?: string
 ) => {
   const role = getRoleFromRedirectUri(redirectUri);
+  console.log("role : ",role)
   const gender = userInfo?.gender?.toLowerCase();
 
   if (
@@ -364,11 +365,18 @@ const pickUserInfo = async (
     );
   }
 
+  console.log("Applicant country and : ",userInfo.applicantForeignBirthCountry)
+
   // Precompute strict country code lookups (undefined if no mapping exists)
   const applicantForeignBirthCountryCode = findCodeForFieldValueStrict(
     "countries",
     userInfo.applicantForeignBirthCountry,
   );
+
+  applicantForeignBirthCountryCode
+
+  console.log("Applicant country code  : ",applicantForeignBirthCountryCode)
+
   const motherForeignResidenceCountryCode = findCodeForFieldValueStrict(
     "countries",
     userInfo.motherForeignResidenceCountry,

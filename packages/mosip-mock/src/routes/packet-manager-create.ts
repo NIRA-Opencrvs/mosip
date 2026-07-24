@@ -73,7 +73,7 @@ type CrvsNewRequest = {
 
 type CrvsDeathRequest = {
   request: {
-    process: "CRVS_DEATH";
+    process: "DEACTIVATED";
     id: string;
     fields: {
       nationalIdNumber?: string;
@@ -90,7 +90,7 @@ const isCrvsNewRequest = (request: CrvsRequest): request is CrvsNewRequest => {
 const isCrvsDeathRequest = (
   request: CrvsRequest,
 ): request is CrvsDeathRequest => {
-  return request.request.process === "CRVS_DEATH";
+  return request.request.process === "DEACTIVATED";
 };
 
 export const packetManagerCreateHandler: RouteHandlerMethod = async (

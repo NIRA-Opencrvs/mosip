@@ -26,7 +26,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
     PRIVATE_KEY,
   );
 
-  const identity = identities.find(({ nid }) => `${nid}@nin` === individualId);
+ const identity = identities.find(({ nid }) => `${nid}@NIN` === individualId.toUpperCase());
 
   if (!identity) {
     return reply.status(200).send({
@@ -59,7 +59,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
       id: "mosip.identity.auth",
       errors: [
         {
-          errorCode: "IDA-DEA-001",
+          errorCode: "IDA-MLC-032",
           errorMessage: "Demographic data name in eng did not match",
           actionMessage: "Please re-enter your name in eng",
         },
@@ -79,7 +79,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
       id: "mosip.identity.auth",
       errors: [
         {
-          errorCode: "IDA-DEA-001",
+          errorCode: "IDA-MLC-032",
           errorMessage: "Demographic data dob did not match",
           actionMessage: "Please re-enter your dob",
         },

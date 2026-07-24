@@ -26,7 +26,7 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
     PRIVATE_KEY,
   );
 
-  const identity = identities.find(({ nid }) => `${nid}@nin` === individualId);
+ const identity = identities.find(({ nid }) => `${nid}@NIN` === individualId.toUpperCase());
 
   if (!identity) {
     return reply.status(200).send({
@@ -35,8 +35,8 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
       id: "mosip.identity.auth",
       errors: [
         {
-          errorCode: "IDA-MLC-002",
-          errorMessage: "Invalid UIN",
+          errorCode: "IDA-MLC-018",
+          errorMessage: "HANDLE not available in database",
           actionMessage: "Please retry with the correct UIN",
         },
       ],
@@ -126,3 +126,5 @@ export const idAuthenticationHandler: RouteHandlerMethod = async (
     },
   });
 };
+
+ 

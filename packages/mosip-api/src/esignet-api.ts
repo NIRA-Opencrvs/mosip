@@ -315,9 +315,7 @@ const pickUserInfo = async (
     (role === "father" && gender === "female")
   ) {
     return {
-      verificationStatus: "failed",
-      verificationFailureReason:
-        "GENDER_MISMATCH" satisfies VerificationReasonCode
+      verificationStatus: "failed"
     };
   }
 

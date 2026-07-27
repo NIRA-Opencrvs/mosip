@@ -1,0 +1,84 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# OpenCRVS is also distributed under the terms of the Civil Registration
+# & Healthcare Disclaimer located at http://opencrvs.org/license.
+#
+# Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
+name: "🌐 Country-config toolkit: Publish to npm"
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: Branch to publish from
+        default: main
+        required: true
+  push:
+    branches:
+      - '*'
+  release:
+    types: [published]
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org/'
+      - name: Check if version exists on npm
+        id: check-version
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG_NAME="$GITHUB_REF_NAME"
+            if [[ "$TAG_NAME" =~ ([0-9]+)\.([0-9]+)\.([0-9]+)([-+][A-Za-z0-9.-]+)?$ ]]; then
+              MOSIP_VERSION="${BASH_REMATCH[0]}"
+              echo "✅ Using semantic version: $MOSIP_VERSION"
+            else
+              echo "❌ Tag '$TAG_NAME' is not a valid semantic version (expected something like 1.2.3 or v1.2.3)"
+              exit 1
+            fi
+          else
+            MOSIP_VERSION="$PACKAGE_VERSION-rc.$(git rev-parse --short=7 HEAD)"
+          fi
+          if npm view @nira-opencrvs/mosip@$MOSIP_VERSION > /dev/null 2>&1; then
+            echo "Version $MOSIP_VERSION already exists on npm."
+            echo "version-exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version $MOSIP_VERSION does not exist on npm."
+            echo "version-exists=false" >> $GITHUB_OUTPUT
+          fi
+          echo "mosip-version=$MOSIP_VERSION" >> $GITHUB_OUTPUT
+        working-directory: packages/country-config
+      - name: Install dependencies
+        if: steps.check-version.outputs.version-exists == 'false'
+        run: yarn install
+        working-directory: packages/country-config
+      - name: Build
+        if: steps.check-version.outputs.version-exists == 'false'
+        run: yarn build
+        working-directory: packages/country-config
+      - name: Authenticate to npm
+        if: steps.check-version.outputs.version-exists == 'false'
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        working-directory: packages/country-config
+      - name: Update package.json version
+        if: steps.check-version.outputs.version-exists == 'false'
+        run: |
+          MOSIP_VERSION="${{ steps.check-version.outputs.mosip-version }}"
+          jq --arg version "$MOSIP_VERSION" '.version = $version' package.json > tmp.$$.json && mv tmp.$$.json package.json
+        working-directory: packages/country-config
+      - run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm
+        if: steps.check-version.outputs.version-exists == 'false'
+        run: npm publish --access public
+        working-directory: packages/country-config
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

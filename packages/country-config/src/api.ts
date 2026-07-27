@@ -31,6 +31,18 @@ export interface VerifyNidPayload {
   transactionId?: string;
 }
 
+export type VerificationReasonCode =
+  | "NAME_MISMATCH"
+  | "DOB_MISMATCH"
+  | "GENDER_MISMATCH"
+  | "NIN_NOT_FOUND"
+  | "UNKNOWN";
+
+export type VerifyNidResult = {
+  status: "verified" | "failed";
+  reasons?: VerificationReasonCode[];
+};
+
 export interface VerificationStatus {
   father: boolean;
   mother: boolean;
@@ -108,7 +120,7 @@ export const createMosipInteropClient = (
         throw new Error(`Failed to verify: ${await response.text()}`);
       }
 
-      return response.text() as Promise<"verified" | "failed">;
+      return (await response.json()) as VerifyNidResult;
     },
   };
 };

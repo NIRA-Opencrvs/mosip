@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - abhay_mosip
   workflow_dispatch:
 
 jobs:

@@ -76,6 +76,9 @@ jobs:
       - run: npm whoami
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
         if: steps.check-version.outputs.version-exists == 'false'
         run: npm publish --access public

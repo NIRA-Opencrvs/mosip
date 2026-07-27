@@ -1,6 +1,6 @@
 {
-  "name": "@opencrvs/mosip",
-  "version": "1.9.2-alpha.2",
+  "name": "@nira-opencrvs/mosip",
+  "version": "1.9.2-alpha.1",
   "license": "MPL-2.0",
   "private": true,
   "packageManager": "yarn@1.22.13",
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "test": "yarn workspace @opencrvs/mosip-api run test",
+    "test": "yarn workspace @nira-opencrvs/mosip-api run test",
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.ts",
     "set-version": "node -e \"const fs=require('fs'),v=process.argv[1];['package.json',...fs.readdirSync('packages').map(d=>'packages/'+d+'/package.json')].forEach(f=>fs.writeFileSync(f,JSON.stringify({...require('./'+f),version:v},null,2)+'\\n'))\""

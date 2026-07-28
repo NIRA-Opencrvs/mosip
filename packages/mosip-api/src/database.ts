@@ -73,9 +73,40 @@ export const insertTransaction = (
 ) =>
   database
     .prepare(
-      "INSERT INTO transactions (id, token, registration_number, action_type, requested_id) VALUES (?, ?, ?, ?, ?)",
+      `INSERT INTO transactions (id, token, registration_number, action_type, requested_id)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         token = excluded.token,
+         registration_number = excluded.registration_number,
+         action_type = excluded.action_type,
+         requested_id = excluded.requested_id`,
     )
     .run(id, token, registrationNumber, actionType ?? null, requestedId ?? null);
+
+/**
+ * Looks up the MOSIP identifier previously stored for a registration number.
+ */
+export const findPreRegIdByRegistrationNumber = (registrationNumber: string) =>
+  (
+    database
+      .prepare("SELECT id FROM transactions WHERE registration_number = ?")
+      .get(registrationNumber) as { id: string } | undefined
+  )?.id;
+
+export const hasTransactionForRegistrationNumber = (
+  registrationNumber: string,
+): boolean =>
+  database
+    .prepare("SELECT 1 FROM transactions WHERE registration_number = ? LIMIT 1")
+    .get(registrationNumber) !== undefined;
+
+
+export const hasPendingFailedRecordForTracking = (
+  trackingId: string,
+): boolean =>
+  database
+    .prepare("SELECT 1 FROM failed_records WHERE tracking_id = ? LIMIT 1")
+    .get(trackingId) !== undefined;
 
 export const getTransaction = (id: string) => {
   const transaction = database

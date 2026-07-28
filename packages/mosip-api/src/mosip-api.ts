@@ -594,26 +594,6 @@ async function getPreRegStatus(
   return result?.response?.statusCode ?? null;
 }
 
-async function isAlreadyBooked(
-  preRegId: string,
-  authToken: string,
-): Promise<boolean> {
-  const response = await fetch(
-    `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/status/${preRegId}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `Authorization=${authToken};`,
-      },
-    },
-  );
-
-  if (!response.ok) return false;
-
-  const result = await response.json();
-  return result?.response === "Booked";
-}
 
 export const postBirthRecord = async ({
   event,
@@ -948,10 +928,7 @@ export const postBirthRecord = async ({
       status = "Pending_Appointment";
     }
 
-    if (
-      status === "Pending_Appointment" &&
-      !(await isAlreadyBooked(preRegId, authToken))
-    ) {
+    if (status === "Pending_Appointment") {
       const appointmentUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/appointment`;
 
       const appointmentBody = {

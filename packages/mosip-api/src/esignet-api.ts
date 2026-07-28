@@ -458,7 +458,9 @@ const pickUserInfo = async (
             }
           : {
               mother_idType: "NATIONAL_ID",
-              mother_nid: userInfo.motherNIN
+              mother_nid: userInfo.motherNIN,
+              mother_nationality:'Ugandan'
+ 
             }
         : {}),
 
@@ -513,6 +515,7 @@ const pickUserInfo = async (
           : {
               father_idType: "NATIONAL_ID",
               father_nid: userInfo.fatherNIN,
+              father_nationality:'Ugandan'
             }
         : {}),
       ...(fatherForeignResidenceCountryCode && userInfo.fatherForeignResidenceAddress

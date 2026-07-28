@@ -971,7 +971,6 @@ export const postBirthRecord = async ({
         );
       }
       console.log("Appointment booking response:", JSON.stringify(appointmentJson, null, 2));
-    }
 
     if (preRegId) {
       const uploadedDocCatCodes = new Set<string>();
@@ -1055,6 +1054,8 @@ export const postBirthRecord = async ({
     } else {
       console.warn("Pre-registration ID not available, skipping document upload");
     }
+   }
+
     return preRegId;
   }
 };

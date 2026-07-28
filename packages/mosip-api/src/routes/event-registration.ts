@@ -98,7 +98,7 @@ export const registrationEventHandler = async (
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error({ transactionId }, "Error occurred in mosip-api: ", errorMessage);
+    request.log.error({ transactionId, errorMessage }, "Error occurred in mosip-api");
 
     // Store failed records for retry
     const birthCertificateNumber = requestFields.birthCertificateNumber;

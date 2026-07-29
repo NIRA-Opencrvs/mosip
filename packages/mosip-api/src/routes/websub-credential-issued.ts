@@ -81,6 +81,17 @@ export const credentialIssuedHandler = async (
       getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
+    // With client credentials configured, confirm with a freshly issued token:
+    // it survives OpenCRVS redeployments that happened while the credential was
+    // pending, and the confirmation is audited as this integration rather than
+    // the registrar. The stored token remains as a fallback for deployments
+    // that have not been issued client credentials yet.
+    const confirmationToken = opencrvs.isDirectAuthConfigured()
+      ? await opencrvs.getConfirmationToken(eventId, actionId)
+      : token;
+
+    // const actionInfo = await opencrvs.findEventActionType(eventId, { token });
+
     const registrationType = request.body.event.data.registrationType;
     const isDeath = registrationType === "DEACTIVATED";
 
@@ -98,11 +109,11 @@ export const credentialIssuedHandler = async (
             ? { "child.verified": "verified" }
             : undefined,
         },
-        { token },
+        { token: confirmationToken, logger: request.log },
       );
        await opencrvs.sendMosipNotification(
         { eventId, registrationNumber },
-        { token },
+        { token: confirmationToken },
       );
     } else {
       
@@ -119,11 +130,11 @@ export const credentialIssuedHandler = async (
             requestedId
           }),
         },
-        { token },
+        { token: confirmationToken, logger: request.log  },
       );
        await opencrvs.sendMosipNotification(
         { eventId, registrationNumber },
-        { token },
+        { token: confirmationToken },
       );
     }
 
@@ -175,6 +186,15 @@ export const credentialErrorHandler = async (
       getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
+    // With client credentials configured, confirm with a freshly issued token:
+    // it survives OpenCRVS redeployments that happened while the credential was
+    // pending, and the confirmation is audited as this integration rather than
+    // the registrar. The stored token remains as a fallback for deployments
+    // that have not been issued client credentials yet.
+    const confirmationToken = opencrvs.isDirectAuthConfigured()
+      ? await opencrvs.getConfirmationToken(eventId, actionId)
+      : token;
+
     const failureReason = request.body.event.data.failureReason;
 
     await opencrvs.rejectRegistration(
@@ -183,7 +203,7 @@ export const credentialErrorHandler = async (
         actionId,
         failureReason
       },
-      { token }
+      { token: confirmationToken }
     );
 
     // Delete transaction after processing error

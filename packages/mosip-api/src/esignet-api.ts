@@ -18,6 +18,7 @@ import { enGB } from "date-fns/locale/en-GB";
 import { fr } from "date-fns/locale/fr";
 import fs from "node:fs";
 import { findCodeForFieldValue, findCodeForFieldValueStrict } from "./dynamic-fields";
+import type { VerificationReasonCode } from "@opencrvs/mosip/api";
 
 const OIDP_CLIENT_PRIVATE_KEY = fs
   .readFileSync(env.OIDP_CLIENT_PRIVATE_KEY_PATH)
@@ -282,9 +283,7 @@ const PAGE_ROLE_MAP: Record<string, string> = {
   "/pages/father": "father",
   "/pages/child": "child",
   "/pages/adoptiveMother": "mother",
-  "/pages/adoptiveFather": "father",
-  "/pages/guardianMother": "mother",
-  "/pages/guardianFather": "father",
+  "/pages/adoptiveFather": "father"
 };
 
 const getRoleFromRedirectUri = (redirectUri?: string): string | undefined => {
@@ -467,7 +466,9 @@ const pickUserInfo = async (
             }
           : {
               mother_idType: "NATIONAL_ID",
-              mother_nid: userInfo.motherNIN
+              mother_nid: userInfo.motherNIN,
+              mother_nationality:'Ugandan'
+ 
             }
         : {}),
 
@@ -522,6 +523,7 @@ const pickUserInfo = async (
           : {
               father_idType: "NATIONAL_ID",
               father_nid: userInfo.fatherNIN,
+              father_nationality:'Ugandan'
             }
         : {}),
       ...(fatherForeignResidenceCountryCode && userInfo.fatherForeignResidenceAddress

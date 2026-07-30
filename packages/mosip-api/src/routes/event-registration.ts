@@ -1,7 +1,13 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import * as mosip from "../mosip-api";
 import { generateTransactionId } from "../registration-number";
-import { insertTransaction, insertFailedRecord } from "../database";
+import {
+  insertTransaction,
+  insertFailedRecord,
+  hasTransactionForRegistrationNumber,
+  hasPendingFailedRecordForTracking,
+  hasTransactionForTrackingId,
+} from "../database";
 import { MosipInteropPayload } from "@opencrvs/mosip/api";
 
 export type OpenCRVSRequest = FastifyRequest<{
@@ -19,6 +25,32 @@ export const registrationEventHandler = async (
   const token = request.headers.authorization!.split(" ")[1];
 
   request.log.info({ trackingId }, "Received record from OpenCRVS");
+
+  /*
+   Ignore duplicate REGISTER requests if already processed or queued for retry, preventing duplicate MOSIP pre-registrations.
+   */
+  const registrationNumber =
+    requestFields.birthCertificateNumber ??
+    requestFields.deathCertificateNumber;
+
+  if (
+    trackingId &&
+    hasTransactionForTrackingId(trackingId)
+  ) {
+    request.log.info(
+      { trackingId },
+      "Duplicate submission ignored: record already sent to MOSIP",
+    );
+    return reply.code(202).send({});
+  }
+
+  if (hasPendingFailedRecordForTracking(trackingId)) {
+    request.log.info(
+      { trackingId },
+      "Duplicate submission ignored: record already queued for retry",
+    );
+    return reply.code(202).send({});
+  }
 
   const transactionId = trackingId + '-' + generateTransactionId();
 
@@ -69,7 +101,7 @@ export const registrationEventHandler = async (
         ? error.message
         : "An unexpected error occurred in MOSIP API";
 
-    request.log.error("Error occured in mosip-api :", error, errorMessage);
+    request.log.error({ transactionId, errorMessage }, "Error occurred in mosip-api");
 
     // Store failed records for retry
     const birthCertificateNumber = requestFields.birthCertificateNumber;

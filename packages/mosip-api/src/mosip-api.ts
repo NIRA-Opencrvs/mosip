@@ -30,6 +30,17 @@ export class MOSIPError extends Error {
   }
 }
 
+/**
+ * Thrown when a record can never succeed, no matter how many times it is retried.
+ * The batch job drops these instead of scheduling another attempt.
+ */
+export class NonRetryableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NonRetryableError";
+  }
+}
+
 export type AuthType = "PACKET" | "WEBSUB";
 
 const execAsync = promisify(exec);
@@ -559,12 +570,44 @@ async function extractAndProcessDocumentsForPacket(
   return processedDocuments;
 }
 
+/**
+ * Statuses a pre-registration can never recover from.
+ */
+const PREREG_TERMINAL_STATUSES = ["Expired", "Consumed", "Cancelled"];
+
+async function getPreRegStatus(
+  preRegId: string,
+  authToken: string,
+): Promise<string | null> {
+  const response = await fetch(
+    `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg/status/${preRegId}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `Authorization=${authToken};`,
+      },
+    },
+  );
+
+  if (!response.ok) return null;
+
+  const result = await response.json();
+
+  // PRG_PAM_APP_005 (unable to fetch the pre-registration) is returned as a 200 with errors
+  if (result?.errors?.length > 0) return null;
+
+  return result?.response?.statusCode ?? null;
+}
+
+
 export const postBirthRecord = async ({
   event,
   requestFields,
   audit,
   metaInfo,
   notification,
+  preRegistrationId,
 }: {
   event: {
     id: string;
@@ -575,7 +618,8 @@ export const postBirthRecord = async ({
   audit: MosipInteropPayload["audit"];
   metaInfo: MosipInteropPayload["metaInfo"];
   notification: MosipInteropPayload["notification"];
-}) => {
+  preRegistrationId?: string;
+}): Promise<string> => {
   const authToken = await getMosipAuthToken("PACKET");
   
   // const { versionString: schemaVersionString, version: idSchemaVersion, schemaJson } = getCachedIDSchema();
@@ -590,6 +634,9 @@ export const postBirthRecord = async ({
   const birthCertificateNumber = requestFields.birthCertificateNumber;
   if (ageInMonths <= 9) {
     const registrationId = event.id;
+    
+    insertTransaction(registrationId, event.token, birthCertificateNumber);
+    
     console.log({ registrationId }, "Event ID");
     // insertTransaction(registrationId, event.token, birthCertificateNumber);
 
@@ -689,225 +736,250 @@ export const postBirthRecord = async ({
 
     return registrationId;
   } else {
-    let userServiceValue = 'NEW';
-    const userServiceTypeField = requestFields.userServiceType;
-    if (userServiceTypeField) {
-      const extractedServiceType = pickFirstString(userServiceTypeField);
-      if (extractedServiceType === 'Alien New Registration') {
-        userServiceValue = 'ALIENNEW';
-      }
+
+    let preRegId = preRegistrationId;
+    let status = preRegId ? await getPreRegStatus(preRegId, authToken) : null;
+
+    if (status && PREREG_TERMINAL_STATUSES.includes(status)) {
+      throw new NonRetryableError(
+        `Pre-registration ${preRegId} is ${status} and cannot be completed`,
+      );
     }
 
-    const identity: Record<string, any> = {
-      IDSchemaVersion: 8.4,
-      userService: userServiceValue,
-      userServiceType: [{ language: 'eng', value: 'CBBI' }],
-      trackingId: [{ language: 'eng', value: event.trackingId }]
-    };
-    const applicantLocationCodes = await processApplicantLocationHierarchy(requestFields);
-    const fatherLocationCodes = await processFatherLocationHierarchy(requestFields);
-    const motherLocationCodes = await processMotherLocationHierarchy(requestFields);
-    for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
-      if (fieldValue == null || fieldValue === '') continue;
-
-
-      if (fieldName === 'birthCertificateNumber'|| fieldName ==='userService' || fieldName ==='userServiceType') continue;
-      if (fieldName.toLowerCase().includes('document')) continue;
-      const wasLangArray = isLangArrayString(fieldValue);
-
-
-      const extractedValue = pickFirstString(fieldValue);
-      if (!extractedValue) continue;
-
-
-      let finalValue: string = extractedValue;
-      if (isDynamicField(fieldName)) {
-        const code = findCodeForFieldValue(fieldName, extractedValue);
-        if (code) {
-          finalValue = code;
+    // Step 1: demographics. Skipped when MOSIP already knows this pre-registration.
+    if (!status) {
+      let userServiceValue = 'NEW';
+      const userServiceTypeField = requestFields.userServiceType;
+      if (userServiceTypeField) {
+        const extractedServiceType = pickFirstString(userServiceTypeField);
+        if (extractedServiceType === 'Alien New Registration') {
+          userServiceValue = 'ALIENNEW';
         }
       }
 
-      if (wasLangArray) {
-        identity[fieldName] = [{ language: 'eng', value: finalValue }];
-      } else {
-        identity[fieldName] = finalValue;
+      const identity: Record<string, any> = {
+        IDSchemaVersion: idSchemaVersion,
+        userService: userServiceValue,
+        userServiceType: [{ language: 'eng', value: 'CBBI' }],
+        trackingId: [{ language: 'eng', value: event.trackingId }]
+      };
+      const applicantLocationCodes = await processApplicantLocationHierarchy(requestFields);
+      const fatherLocationCodes = await processFatherLocationHierarchy(requestFields);
+      const motherLocationCodes = await processMotherLocationHierarchy(requestFields);
+      for (const [fieldName, fieldValue] of Object.entries(requestFields)) {
+        if (fieldValue == null || fieldValue === '') continue;
+
+
+        if (fieldName === 'birthCertificateNumber'|| fieldName ==='userService' || fieldName ==='userServiceType') continue;
+        if (fieldName.toLowerCase().includes('document')) continue;
+        const wasLangArray = isLangArrayString(fieldValue);
+
+
+        const extractedValue = pickFirstString(fieldValue);
+        if (!extractedValue) continue;
+
+
+        let finalValue: string = extractedValue;
+        if (isDynamicField(fieldName)) {
+          const code = findCodeForFieldValue(fieldName, extractedValue);
+          if (code) {
+            finalValue = code;
+          }
+        }
+
+        if (wasLangArray) {
+          identity[fieldName] = [{ language: 'eng', value: finalValue }];
+        } else {
+          identity[fieldName] = finalValue;
+        }
       }
-    }
 
-    if (applicantLocationCodes.districtCode) {
-      identity['applicantPlaceOfBirthDistrict'] = [{ language: 'eng', value: applicantLocationCodes.districtCode }];
-    }
-    if (applicantLocationCodes.countyCode) {
-      identity['applicantPlaceOfBirthCounty'] = [{ language: 'eng', value: applicantLocationCodes.countyCode }];
-    }
-    if (applicantLocationCodes.subCountyCode) {
-      identity['applicantPlaceOfBirthSubCounty'] = [{ language: 'eng', value: applicantLocationCodes.subCountyCode }];
-    }
-    if (applicantLocationCodes.parishCode) {
-      identity['applicantPlaceOfBirthParish'] = [{ language: 'eng', value: applicantLocationCodes.parishCode }];
-    }
-    if (applicantLocationCodes.villageCode) {
-      identity['applicantPlaceOfBirthVillage'] = [{ language: 'eng', value: applicantLocationCodes.villageCode }];
-    }
-    //father location
-    if (fatherLocationCodes.districtCode) {
-      identity['fatherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: fatherLocationCodes.districtCode }];
-    }
-    if (fatherLocationCodes.countyCode) {
-      identity['fatherPlaceOfResidenceCounty'] = [{ language: 'eng', value: fatherLocationCodes.countyCode }];
-    }
-    if (fatherLocationCodes.subCountyCode) {
-      identity['fatherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: fatherLocationCodes.subCountyCode }];
-    }
-    if (fatherLocationCodes.parishCode) {
-      identity['fatherPlaceOfResidenceParish'] = [{ language: 'eng', value: fatherLocationCodes.parishCode }];
-    }
-    if (fatherLocationCodes.villageCode) {
-      identity['fatherPlaceOfResidenceVillage'] = [{ language: 'eng', value: fatherLocationCodes.villageCode }];
-    }
-   //mother location
-    if(motherLocationCodes.districtCode) {
-      identity['motherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: motherLocationCodes.districtCode }];
-    }
-    if(motherLocationCodes.countyCode) {
-      identity['motherPlaceOfResidenceCounty'] = [{ language: 'eng', value: motherLocationCodes.countyCode }];
-    }
-    if(motherLocationCodes.subCountyCode) {
-      identity['motherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: motherLocationCodes.subCountyCode }];
-    }
-    if(motherLocationCodes.parishCode) {
-      identity['motherPlaceOfResidenceParish'] = [{ language: 'eng', value: motherLocationCodes.parishCode }];
-    }
-    if(motherLocationCodes.villageCode) {
-      identity['motherPlaceOfResidenceVillage'] = [{ language: 'eng', value: motherLocationCodes.villageCode }];
-    }
-
-    const springPayload = {
-      id: "mosip.pre-registration.demographic.create",
-      version: "1.0",
-      requesttime: new Date().toISOString(),
-      request: {
-        langCode: "eng",
-        demographicDetails: {
-          identity,
-        },
-        requiredFields: ["givenName", "surname", "dateOfBirth", "gender"]
+      if (applicantLocationCodes.districtCode) {
+        identity['applicantPlaceOfBirthDistrict'] = [{ language: 'eng', value: applicantLocationCodes.districtCode }];
       }
-    };
-
-    // const IDA_AUTH_DOMAIN_URI = "http://localhost:9091";
-    const SPRING_SERVICE_URL = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg`;
-
-    const response = await fetch(SPRING_SERVICE_URL, {
-      method: "POST",
-      body: JSON.stringify(springPayload),
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `Authorization=${authToken};`
+      if (applicantLocationCodes.countyCode) {
+        identity['applicantPlaceOfBirthCounty'] = [{ language: 'eng', value: applicantLocationCodes.countyCode }];
       }
-    });
+      if (applicantLocationCodes.subCountyCode) {
+        identity['applicantPlaceOfBirthSubCounty'] = [{ language: 'eng', value: applicantLocationCodes.subCountyCode }];
+      }
+      if (applicantLocationCodes.parishCode) {
+        identity['applicantPlaceOfBirthParish'] = [{ language: 'eng', value: applicantLocationCodes.parishCode }];
+      }
+      if (applicantLocationCodes.villageCode) {
+        identity['applicantPlaceOfBirthVillage'] = [{ language: 'eng', value: applicantLocationCodes.villageCode }];
+      }
+      //father location
+      if (fatherLocationCodes.districtCode) {
+        identity['fatherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: fatherLocationCodes.districtCode }];
+      }
+      if (fatherLocationCodes.countyCode) {
+        identity['fatherPlaceOfResidenceCounty'] = [{ language: 'eng', value: fatherLocationCodes.countyCode }];
+      }
+      if (fatherLocationCodes.subCountyCode) {
+        identity['fatherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: fatherLocationCodes.subCountyCode }];
+      }
+      if (fatherLocationCodes.parishCode) {
+        identity['fatherPlaceOfResidenceParish'] = [{ language: 'eng', value: fatherLocationCodes.parishCode }];
+      }
+      if (fatherLocationCodes.villageCode) {
+        identity['fatherPlaceOfResidenceVillage'] = [{ language: 'eng', value: fatherLocationCodes.villageCode }];
+      }
+     //mother location
+      if(motherLocationCodes.districtCode) {
+        identity['motherPlaceOfResidenceDistrict'] = [{ language: 'eng', value: motherLocationCodes.districtCode }];
+      }
+      if(motherLocationCodes.countyCode) {
+        identity['motherPlaceOfResidenceCounty'] = [{ language: 'eng', value: motherLocationCodes.countyCode }];
+      }
+      if(motherLocationCodes.subCountyCode) {
+        identity['motherPlaceOfResidenceSubCounty'] = [{ language: 'eng', value: motherLocationCodes.subCountyCode }];
+      }
+      if(motherLocationCodes.parishCode) {
+        identity['motherPlaceOfResidenceParish'] = [{ language: 'eng', value: motherLocationCodes.parishCode }];
+      }
+      if(motherLocationCodes.villageCode) {
+        identity['motherPlaceOfResidenceVillage'] = [{ language: 'eng', value: motherLocationCodes.villageCode }];
+      }
 
-    const rawResponseText = await response.text();
+      const springPayload = {
+        id: "mosip.pre-registration.demographic.create",
+        version: "1.0",
+        requesttime: new Date().toISOString(),
+        request: {
+          langCode: "eng",
+          demographicDetails: {
+            identity,
+          },
+          requiredFields: ["givenName", "surname", "dateOfBirth", "gender"]
+        }
+      };
 
-    if (!response.ok) {
-      throw new Error(
-        `Failed creating pre-registration: ${response.status} ${rawResponseText}`,
-      );
-    }
+      // const IDA_AUTH_DOMAIN_URI = "http://localhost:9091";
+      const SPRING_SERVICE_URL = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg`;
 
-    let createData: any = rawResponseText;
-    try {
-      createData = rawResponseText ? JSON.parse(rawResponseText) : rawResponseText;
-    } catch (e) {
-      throw new Error(
-        `Failed parsing pre-registration response: ${e instanceof Error ? e.message : "Unknown parsing error"}`,
-      );
-    }
-    const preRegId = createData?.response?.preRegistrationId;
+      const response = await fetch(SPRING_SERVICE_URL, {
+        method: "POST",
+        body: JSON.stringify(springPayload),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `Authorization=${authToken};`
+        }
+      });
 
-    console.log("Pre-registration creation response:", preRegId);
+      const rawResponseText = await response.text();
 
-    if (createData?.errors?.length > 0) {
-      throw new Error(
-        `Pre-registration failed: [${createData.errors[0].errorCode}] ${createData.errors[0].message}`,
-      );
+      if (!response.ok) {
+        throw new Error(
+          `Failed creating pre-registration: ${response.status} ${rawResponseText}`,
+        );
+      }
+
+      let createData: any = rawResponseText;
+      try {
+        createData = rawResponseText ? JSON.parse(rawResponseText) : rawResponseText;
+      } catch (e) {
+        throw new Error(
+          `Failed parsing pre-registration response: ${e instanceof Error ? e.message : "Unknown parsing error"}`,
+        );
+      }
+      preRegId = createData?.response?.preRegistrationId;
+
+      console.log("Pre-registration creation response:", preRegId);
+
+      if (createData?.errors?.length > 0) {
+        throw new Error(
+          `Pre-registration failed: [${createData.errors[0].errorCode}] ${createData.errors[0].message}`,
+        );
+      }
+
+      if (!preRegId) {
+        throw new Error("Failed to get pre-registration ID from MOSIP response");
+      }
+
+      insertTransaction(preRegId, event.token, birthCertificateNumber);
+
+      status = "Application_Incomplete";
     }
 
     if (!preRegId) {
-      throw new Error("Failed to get pre-registration ID from MOSIP response");
+      throw new Error("Failed to resolve a pre-registration ID");
     }
 
-    // insertTransaction(preRegId, event.token, birthCertificateNumber);
+    // Step 2: move the application to Pending_Appointment.
+    if (status === "Application_Incomplete") {
+      const statusUrl =
+        `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg/status/${preRegId}?statusCode=Pending_Appointment`;
 
-    const statusUrl =
-      `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/prereg/status/${preRegId}?statusCode=Pending_Appointment`;
+      const statusRes = await fetch(statusUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `Authorization=${authToken};`
+        }
+      });
 
-    const statusRes = await fetch(statusUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `Authorization=${authToken};`
+      if (!statusRes.ok) {
+        throw new Error(
+          `Failed updating status to Pending_Appointment: ${statusRes.status} ${await statusRes.text()}`,
+        );
       }
-    });
 
-    if (!statusRes.ok) {
-      throw new Error(
-        `Failed updating status to Pending_Appointment: ${statusRes.status} ${await statusRes.text()}`,
-      );
+      const statusResult = await statusRes.json();
+      console.log("Status update response:", statusResult);
+
+      if (statusResult?.errors?.length > 0) {
+        throw new Error(
+          `Status update failed: [${statusResult.errors[0].errorCode}] ${statusResult.errors[0].message}`,
+        );
+      }
+
+      status = "Pending_Appointment";
     }
 
-    const statusResult = await statusRes.json();
-    console.log("Status update response:", statusResult);
+    if (status === "Pending_Appointment") {
+      const appointmentUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/appointment`;
 
-    if (statusResult?.errors?.length > 0) {
-      throw new Error(
-        `Status update failed: [${statusResult.errors[0].errorCode}] ${statusResult.errors[0].message}`,
-      );
-    }
+      const appointmentBody = {
+        id: "mosip.pre-registration.booking.book",
+        request: {
+          bookingRequest: [
+            {
+              preRegistrationId: preRegId,
+              registration_center_id: "10045",
+              appointment_date: "2028-10-01",
+              time_slot_from: "09:30:00",
+              time_slot_to: "09:45:00",
+            },
+          ],
+        },
+        version: "1.0",
+        requesttime: new Date().toISOString(),
+      };
 
-    const appointmentUrl = `${env.IDA_AUTH_DOMAIN_URI}/preregistration/v1/applications/appointment`;
+      const appointmentRes = await fetch(appointmentUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `Authorization=${authToken};`,
+        },
+        body: JSON.stringify(appointmentBody),
+      });
 
-    const appointmentBody = {
-      id: "mosip.pre-registration.booking.book",
-      request: {
-        bookingRequest: [
-          {
-            preRegistrationId: preRegId,
-            registration_center_id: "10045",
-            appointment_date: "2028-10-01",
-            time_slot_from: "09:30:00",
-            time_slot_to: "09:45:00",
-          },
-        ],
-      },
-      version: "1.0",
-      requesttime: new Date().toISOString(),
-    };
+      if (!appointmentRes.ok) {
+        throw new Error(
+          `Failed creating appointment: ${appointmentRes.status} ${await appointmentRes.text()}`,
+        );
+      }
 
-    const appointmentRes = await fetch(appointmentUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `Authorization=${authToken};`,
-      },
-      body: JSON.stringify(appointmentBody),
-    });
+      const appointmentJson = await appointmentRes.json();
 
-    if (!appointmentRes.ok) {
-      throw new Error(
-        `Failed creating appointment: ${appointmentRes.status} ${await appointmentRes.text()}`,
-      );
-    }
-
-    const appointmentJson = await appointmentRes.json();
-
-     if (appointmentJson?.errors?.length > 0) {
-      throw new Error(
-        `Appointment booking failed: [${appointmentJson.errors[0].errorCode}] ${appointmentJson.errors[0].message}`,
-      );
-    }
-    console.log("Appointment booking response:", JSON.stringify(appointmentJson, null, 2));
+       if (appointmentJson?.errors?.length > 0) {
+        throw new Error(
+          `Appointment booking failed: [${appointmentJson.errors[0].errorCode}] ${appointmentJson.errors[0].message}`,
+        );
+      }
+      console.log("Appointment booking response:", JSON.stringify(appointmentJson, null, 2));
 
     if (preRegId) {
       const uploadedDocCatCodes = new Set<string>();
@@ -983,8 +1055,6 @@ export const postBirthRecord = async ({
           const notificationResult = await notificationRes.json();
           console.log("Notification sent successfully:", notificationResult);
         }
-
-        return preRegId;
       } catch (error) {
         console.log(
           `Error sending notification: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -993,7 +1063,9 @@ export const postBirthRecord = async ({
     } else {
       console.warn("Pre-registration ID not available, skipping document upload");
     }
+   }
 
+    return preRegId;
   }
 };
 

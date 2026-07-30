@@ -1,6 +1,8 @@
 import { DateValue, NameFieldValue, TextValue } from "@opencrvs/toolkit/events";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { verifyNid } from "../mosip-api";
+import { mapIdaError } from "./mapIdaError";
+import type { VerifyNidResult } from "@opencrvs/mosip/api";
 import { z } from "zod";
 import { isValid, format, Locale, parse } from "date-fns";
 import { enGB } from "date-fns/locale/en-GB";
@@ -48,7 +50,16 @@ export const verifyHandler = async (
     ({ errorCode }) => errorCode === "IDA-MLC-032",
   );
 
-  const verified = authStatus || isDeceasedError;
+  const status: VerifyNidResult["status"] =
+    authStatus || isDeceasedError ? "verified" : "failed";
+        
+  let reasons: VerifyNidResult["reasons"];
+  if (status === "failed") {
+    const mapped = mapIdaError(result.errors);
+    reasons = mapped.length > 0 ? mapped : ["UNKNOWN"];
+  }
+
+  const verifyResult: VerifyNidResult = { status, reasons };
 
   const transactionId = request.body.transactionId;
 
@@ -57,11 +68,12 @@ export const verifyHandler = async (
       transactionId,
       authStatus,
       errors: result.errors,
-      verified,
+      status,
+      reasons,
     });
   }
 
-  return reply.code(200).send(verified ? "verified" : "failed");
+  return reply.code(200).send(verifyResult);
 };
 
 function formatDate(dateString: string, formatStr = "dd/MM/yyyy") {

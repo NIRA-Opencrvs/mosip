@@ -1,5 +1,5 @@
 {
-  "name": "@opencrvs/mosip-api",
+  "name": "@nira-opencrvs/mosip-api",
   "version": "1.9.1",
   "license": "MPL-2.0",
   "scripts": {

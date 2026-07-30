@@ -6,6 +6,7 @@ import {
   insertFailedRecord,
   hasTransactionForRegistrationNumber,
   hasPendingFailedRecordForTracking,
+  hasTransactionForTrackingId,
 } from "../database";
 import { MosipInteropPayload } from "@opencrvs/mosip/api";
 
@@ -33,8 +34,8 @@ export const registrationEventHandler = async (
     requestFields.deathCertificateNumber;
 
   if (
-    registrationNumber &&
-    hasTransactionForRegistrationNumber(registrationNumber)
+    trackingId &&
+    hasTransactionForTrackingId(trackingId)
   ) {
     request.log.info(
       { trackingId },

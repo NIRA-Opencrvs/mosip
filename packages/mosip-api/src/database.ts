@@ -100,6 +100,16 @@ export const hasTransactionForRegistrationNumber = (
     .prepare("SELECT 1 FROM transactions WHERE registration_number = ? LIMIT 1")
     .get(registrationNumber) !== undefined;
 
+/**
+ * Checks whether a transaction already exists for a declaration.
+ */
+export const hasTransactionForTrackingId = (
+  trackingId: string,
+): boolean =>
+  database
+    .prepare("SELECT 1 FROM transactions WHERE id LIKE ? LIMIT 1")
+    .get(`${trackingId}-%`) !== undefined;
+
 
 export const hasPendingFailedRecordForTracking = (
   trackingId: string,

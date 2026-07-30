@@ -36,6 +36,9 @@ export const processPendingRecords = async (
     for (const record of failedRecords) {
       try {
         if (record.eventType === "birth") {
+          const birthCertificateNumber =
+            record.requestFields.birthCertificateNumber as string;
+
           const regId = await mosip.postBirthRecord({
             event: {
               id: record.id,
@@ -46,11 +49,12 @@ export const processPendingRecords = async (
             audit: record.audit,
             metaInfo: record.metaInfo,
             notification: record.notification,
+            preRegistrationId: db.findPreRegIdByRegistrationNumber(
+              birthCertificateNumber,
+            ),
           });
 
           // Success - insert transaction and remove from failed records
-          const birthCertificateNumber =
-            record.requestFields.birthCertificateNumber as string;
           insertTransaction(regId, record.token, birthCertificateNumber);
 
           db.removeFailedRecord(record.id);
@@ -90,6 +94,24 @@ export const processPendingRecords = async (
           error instanceof Error
             ? error.message
             : "Unknown error during retry";
+
+        /*
+         * An Expired, Consumed or Cancelled pre-registration can never be completed
+         */
+        if (error instanceof mosip.NonRetryableError) {
+          db.removeFailedRecord(record.id);
+          failed++;
+
+          app.log.error(
+            {
+              recordId: record.id,
+              eventType: record.eventType,
+              error: errorMessage,
+            },
+            "⛔ Record cannot be completed, dropped without further retries",
+          );
+          continue;
+        }
 
         db.incrementFailedRecordRetry(record.id, errorMessage);
         failed++;
@@ -146,6 +168,8 @@ export const processSingleRecord = async (
     app.log.info({ recordId: record.id }, "Force retrying specific record");
 
     if (record.eventType === "birth") {
+      const birthCertificateNumber = record.requestFields.birthCertificateNumber as string;
+
       const regId = await mosip.postBirthRecord({
         event: {
           id: record.id,
@@ -156,10 +180,12 @@ export const processSingleRecord = async (
         audit: record.audit,
         metaInfo: record.metaInfo,
         notification: record.notification,
+        preRegistrationId: db.findPreRegIdByRegistrationNumber(
+          birthCertificateNumber,
+        ),
       });
 
       // Success - insert transaction and remove from failed records
-      const birthCertificateNumber = record.requestFields.birthCertificateNumber as string;
       insertTransaction(regId, record.token, birthCertificateNumber);
 
       db.removeFailedRecord(record.id);

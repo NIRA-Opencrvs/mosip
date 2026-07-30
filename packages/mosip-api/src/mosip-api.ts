@@ -628,6 +628,9 @@ export const postBirthRecord = async ({
   const birthCertificateNumber = requestFields.birthCertificateNumber;
   if (ageInMonths <= 9) {
     const registrationId = event.id;
+    
+    insertTransaction(registrationId, event.token, birthCertificateNumber);
+    
     console.log({ registrationId }, "Event ID");
     // insertTransaction(registrationId, event.token, birthCertificateNumber);
 

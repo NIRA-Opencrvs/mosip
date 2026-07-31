@@ -46,9 +46,9 @@ export const verifyHandler = async (
 
   const authStatus = result.response.authStatus;
 
-  const isDeceasedError = result.errors?.some(
-    ({ errorCode }) => errorCode === "IDA-MLC-032",
-  );
+  const isDeceasedError =
+    !!result.errors?.length &&
+    result.errors.every(({ errorCode }) => errorCode === "IDA-MLC-032");
 
   const status: VerifyNidResult["status"] =
     authStatus || isDeceasedError ? "verified" : "failed";

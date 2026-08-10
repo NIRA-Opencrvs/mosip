@@ -20,7 +20,7 @@ function mapSingleIdaError(error: IdaError): VerificationReasonCode {
     return "NIN_NOT_FOUND";
   }
 
-  if (error.errorCode === "IDA-DEA-001") {
+  if (error.errorCode === "IDA-DEA-001" || error.errorCode === "IDA-DEA-003") {
     const message = error.errorMessage?.toLowerCase() ?? "";
     if (message.includes("dob")) return "DOB_MISMATCH";
     if (message.includes("name")) return "NAME_MISMATCH";

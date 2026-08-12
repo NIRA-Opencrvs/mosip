@@ -49,9 +49,7 @@ export const processPendingRecords = async (
             audit: record.audit,
             metaInfo: record.metaInfo,
             notification: record.notification,
-            preRegistrationId: db.findPreRegIdByRegistrationNumber(
-              birthCertificateNumber,
-            ),
+            preRegistrationId: db.findPreRegIdByTrackingId(record.trackingId),
           });
 
           // Success - insert transaction and remove from failed records
@@ -180,9 +178,7 @@ export const processSingleRecord = async (
         audit: record.audit,
         metaInfo: record.metaInfo,
         notification: record.notification,
-        preRegistrationId: db.findPreRegIdByRegistrationNumber(
-          birthCertificateNumber,
-        ),
+        preRegistrationId: db.findPreRegIdByTrackingId(record.trackingId),
       });
 
       // Success - insert transaction and remove from failed records

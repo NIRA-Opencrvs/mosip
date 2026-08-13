@@ -93,6 +93,16 @@ export const findPreRegIdByRegistrationNumber = (registrationNumber: string) =>
       .get(registrationNumber) as { id: string } | undefined
   )?.id;
 
+/**
+ * Looks up the MOSIP pre-registration id previously stored for a declaration.
+ */
+export const findPreRegIdByTrackingId = (trackingId: string) =>
+  (
+    database
+      .prepare("SELECT id FROM transactions WHERE id >= ? AND id < ? LIMIT 1")
+      .get(`${trackingId}-`, `${trackingId}.`) as { id: string } | undefined
+  )?.id;
+
 export const hasTransactionForRegistrationNumber = (
   registrationNumber: string,
 ): boolean =>

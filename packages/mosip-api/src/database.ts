@@ -36,6 +36,26 @@ const FAILED_RECORDS_SCHEMA = `
   ) STRICT
 `;
 
+// Verifications parked because IDA was unreachable. Separate from
+// failed_records so the MOSIP packet queue is untouched.
+const PENDING_VERIFICATIONS_SCHEMA = `
+  CREATE TABLE pending_verifications (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    action_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    token TEXT NOT NULL,
+    event_document TEXT NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    next_retry_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  ) STRICT;
+  CREATE INDEX idx_pending_verifications_due ON pending_verifications(next_retry_at);
+`;
+
 let database: Database;
 
 export const initSqlite = (path: string) => {
@@ -59,6 +79,16 @@ export const initSqlite = (path: string) => {
 
   if (!failedRecordsTableExists) {
     database.exec(FAILED_RECORDS_SCHEMA);
+  }
+
+  const pendingVerificationsTableExists = database
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='pending_verifications'",
+    )
+    .get();
+
+  if (!pendingVerificationsTableExists) {
+    database.exec(PENDING_VERIFICATIONS_SCHEMA);
   }
 
   return { wasCreated: !tableExists, wasConnected: tableExists, database };
@@ -423,3 +453,193 @@ export const removeFailedRecordAndReturnData = (id: string) => {
     retryCount: removed.retry_count,
   };
 };
+
+
+export interface PendingVerification {
+  id: string;
+  eventId: string;
+  actionId: string;
+  eventType: string;
+  actionType: string;
+  token: string;
+  eventDocument: Record<string, unknown>;
+  retryCount: number;
+  lastError?: string;
+  nextRetryAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type PendingVerificationRow = {
+  id: string;
+  event_id: string;
+  action_id: string;
+  event_type: string;
+  action_type: string;
+  token: string;
+  event_document: string;
+  retry_count: number;
+  last_error: string | null;
+  next_retry_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+const PENDING_VERIFICATION_COLUMNS = `id, event_id, action_id, event_type, action_type, token, event_document, retry_count, last_error, next_retry_at, created_at, updated_at`;
+
+const toPendingVerification = (
+  row: PendingVerificationRow,
+): PendingVerification => ({
+  id: row.id,
+  eventId: row.event_id,
+  actionId: row.action_id,
+  eventType: row.event_type,
+  actionType: row.action_type,
+  token: row.token,
+  eventDocument: JSON.parse(row.event_document) as Record<string, unknown>,
+  retryCount: row.retry_count,
+  lastError: row.last_error ?? undefined,
+  nextRetryAt: row.next_retry_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+/** One job per action; a unique index also allows only one per record. */
+export const pendingVerificationId = (eventId: string, actionId: string) =>
+  `${eventId}:${actionId}`;
+
+/** Idempotent. Returns true when a new job was created. */
+export const insertPendingVerification = ({
+  eventId,
+  actionId,
+  eventType,
+  actionType,
+  token,
+  eventDocument,
+  lastError,
+}: {
+  eventId: string;
+  actionId: string;
+  eventType: string;
+  actionType: string;
+  token: string;
+  eventDocument: Record<string, unknown>;
+  lastError: string;
+}) => {
+  const result = database
+    .prepare(
+      `INSERT INTO pending_verifications
+         (id, event_id, action_id, event_type, action_type, token, event_document, last_error, retry_count, next_retry_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+       ON CONFLICT DO NOTHING`,
+    )
+    .run(
+      pendingVerificationId(eventId, actionId),
+      eventId,
+      actionId,
+      eventType,
+      actionType,
+      token,
+      JSON.stringify(eventDocument),
+      lastError,
+    );
+
+  return result.changes > 0;
+};
+
+export const hasPendingVerificationForEvent = (eventId: string): boolean =>
+  database
+    .prepare("SELECT 1 FROM pending_verifications WHERE event_id = ? LIMIT 1")
+    .get(eventId) !== undefined;
+
+/** Leases claimed jobs so a crash or slow pass cannot double-process them. */
+export const claimPendingVerifications = (
+  limit: number,
+  leaseMinutes: number,
+) => {
+  const claim = database.transaction(
+    (batchSize: number, lease: number): PendingVerificationRow[] => {
+      const rows = database
+        .prepare(
+          `SELECT ${PENDING_VERIFICATION_COLUMNS}
+           FROM pending_verifications
+           WHERE next_retry_at <= datetime('now')
+           ORDER BY retry_count ASC, created_at ASC
+           LIMIT ?`,
+        )
+        .all(batchSize) as PendingVerificationRow[];
+
+      const lease_ = database.prepare(
+        `UPDATE pending_verifications
+         SET next_retry_at = datetime('now', '+' || CAST(? AS TEXT) || ' minutes'),
+             updated_at = datetime('now')
+         WHERE id = ?`,
+      );
+
+      for (const row of rows) {
+        lease_.run(lease, row.id);
+      }
+
+      return rows;
+    },
+  );
+
+  return claim(limit, leaseMinutes).map(toPendingVerification);
+};
+
+/** Exponential backoff with jitter, so a backlog does not stampede IDA. */
+export const reschedulePendingVerification = (
+  id: string,
+  error: string,
+  backoffBaseMinutes: number,
+) => {
+  database
+    .prepare(
+      `UPDATE pending_verifications
+       SET retry_count = retry_count + 1,
+           last_error = ?,
+           next_retry_at = datetime('now',
+             '+' || CAST(POWER(2, MIN(retry_count, 10)) * ? AS TEXT) || ' minutes',
+             '+' || CAST(ABS(RANDOM()) % 60 AS TEXT) || ' seconds'),
+           updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(error, backoffBaseMinutes, id);
+};
+
+export const removePendingVerification = (id: string) => {
+  const result = database
+    .prepare("DELETE FROM pending_verifications WHERE id = ?")
+    .run(id);
+
+  return result.changes > 0;
+};
+
+export const getPendingVerificationById = (id: string) => {
+  const row = database
+    .prepare(
+      `SELECT ${PENDING_VERIFICATION_COLUMNS} FROM pending_verifications WHERE id = ?`,
+    )
+    .get(id) as PendingVerificationRow | undefined;
+
+  return row ? toPendingVerification(row) : undefined;
+};
+
+export const getAllPendingVerifications = (limit = 50) =>
+  (
+    database
+      .prepare(
+        `SELECT ${PENDING_VERIFICATION_COLUMNS}
+         FROM pending_verifications
+         ORDER BY created_at ASC
+         LIMIT ?`,
+      )
+      .all(limit) as PendingVerificationRow[]
+  ).map(toPendingVerification);
+
+export const countPendingVerifications = () =>
+  (
+    database
+      .prepare("SELECT COUNT(*) AS count FROM pending_verifications")
+      .get() as { count: number }
+  ).count;

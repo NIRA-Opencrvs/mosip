@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url, num } from "envalid";
+import { cleanEnv, str, port, url, num, bool } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {
@@ -180,9 +180,42 @@ export const env = cleanEnv(process.env, {
     default: 1800000, // 30 minutes
     desc: "Interval in milliseconds between websub initalization batch job executions",
   }),
+
+  // IDA verification retry
+  // MOSIP `failed_records` retry above.
+  IDA_RETRY_ENABLED: bool({
+    default: true,
+    desc: "Kill switch for the IDA verification retry queue. When false, the queue is never drained and countryconfig keeps today's behaviour of treating an unreachable IDA as a failed verification.",
+  }),
+  IDA_RETRY_INTERVAL_MS: num({
+    default: 500000, 
+    desc: "Interval in milliseconds between IDA verification retry job executions",
+  }),
+  IDA_RETRY_BATCH_LIMIT: num({
+    default: 50,
+    desc: "Maximum number of pending IDA verifications to process in each retry job run. Keep this within what IDA can absorb: the whole batch is processed sequentially.",
+  }),
+  IDA_RETRY_MAX_ATTEMPTS: num({
+    default: 8,
+    desc: "Attempts before a pending verification is finalised using the pre-existing behaviour (unreachable IDA counted as a failed verification, so the record lands in Awaiting ID Update). With the default backoff this spans roughly 21 hours.",
+  }),
+  IDA_RETRY_MAX_AGE_HOURS: num({
+    default: 48,
+    desc: "Age at which a pending verification is finalised regardless of attempt count. Must stay below the action confirmation token lifetime (1 week by default).",
+  }),
+  IDA_RETRY_BACKOFF_BASE_MINUTES: num({
+    default: 5,
+    desc: "Base for the exponential backoff between attempts: 5, 10, 20, 40 ... minutes, plus up to a minute of jitter",
+  }),
+  IDA_RETRY_LEASE_MINUTES: num({
+    default: 10,
+    desc: "How long a claimed job is hidden from subsequent runs. Must exceed the callback timeout so a slow pass cannot be picked up twice.",
+  }),
+  IDA_RETRY_CALLBACK_TIMEOUT_MS: num({
+    default: 60000,
+    desc: "Timeout for the country config callback that re-runs a pending verification",
+  }),
 });
-
-
 
 export const MOSIP_VERIFIABLE_CREDENTIAL_ALLOWED_URLS =
   env.MOSIP_VERIFIABLE_CREDENTIAL_ALLOWLIST.split(",");

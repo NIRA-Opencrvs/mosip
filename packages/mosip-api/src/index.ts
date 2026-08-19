@@ -27,6 +27,8 @@ import {
   replaceTokenByIdHandler,
   replaceAllTokensHandler,
   ReplaceTokenSchema,
+  StoreTransactionsSchema,
+  storeTransactionsHandler,
 } from "./routes/debug-sqlite";
 import { verifyHandler, VerifySchema } from "./routes/verify";
 import { initializeIDSchema } from "./mosip-api";
@@ -148,6 +150,15 @@ const initRoutes = (app: FastifyInstance) => {
     method: "DELETE",
     url: "/debug/transactions/:id",
     handler: deleteTransactionHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/transactions",
+    handler: storeTransactionsHandler,
+    schema: {
+      body: StoreTransactionsSchema,
+    },
   });
 
   app.withTypeProvider<ZodTypeProvider>().route({

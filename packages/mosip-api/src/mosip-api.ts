@@ -584,7 +584,11 @@ async function getPreRegStatus(
     },
   );
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    throw new MOSIPError(
+      `Failed fetching pre-registration status for ${preRegId}, response: ${await response.text()}`,
+    );
+  }
 
   const result = await response.json();
 

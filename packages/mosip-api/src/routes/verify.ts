@@ -29,8 +29,8 @@ const NIN_ALREADY_DEACTIVATED = "IDA-MLC-032";
 /**
  * Transaction ids are `${page}-${eventId}`, set by country config
  */
-const isDeceasedVerification = (transactionId: string | undefined) =>
-  transactionId?.startsWith("deceased-") ?? false;
+const isMotherOrFatherVerification = (transactionId: string | undefined) =>
+  transactionId?.startsWith("mother-") || transactionId?.startsWith("father-") || false;
 
 /**
  * Turns IDA's answer into a verdict.
@@ -52,7 +52,7 @@ export const resolveVerificationStatus = ({
     !!errors?.length &&
     errors.every(({ errorCode }) => errorCode === NIN_ALREADY_DEACTIVATED);
 
-  return ninAlreadyDeactivated && !isDeceasedVerification(transactionId)
+  return ninAlreadyDeactivated && isMotherOrFatherVerification(transactionId)
     ? "verified"
     : "failed";
 };

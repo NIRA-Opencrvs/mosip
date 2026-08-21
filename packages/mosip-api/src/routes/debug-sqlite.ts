@@ -5,6 +5,7 @@ import {
   updateTransactionToken,
   updateAllTransactionsToken,
   getTransaction,
+  insertTransactions,
 } from "../database";
 import { SCOPES } from "@opencrvs/toolkit/scopes";
 import { TokenPayload } from "./websub-credential-issued";
@@ -96,6 +97,65 @@ export const ReplaceTokenSchema = z.object({
   token: z.string().describe("The new token to replace the existing one"),
 });
 
+export const TransactionExchangeRecordSchema = z.object({
+  id: z.string().describe("Transaction identifier for the stored record"),
+  registration_number: z.string().describe("Registration number to store alongside the token"),
+  event_id: z.string().describe("Event ID to request a record-scoped token for"),
+  action_id: z.string().describe("Action ID to request a record-scoped token for"),
+});
+
+export const StoreTransactionsSchema = z.object({
+  records: z
+    .array(TransactionExchangeRecordSchema)
+    .min(1)
+    .describe("Records to exchange into single-record tokens and persist"),
+});
+
+const exchangeSingleRecordToken = async (
+  subjectToken: string,
+  eventId: string,
+  actionId: string,
+) => {
+  const tokenExchangeUrl = new URL(`${env.AUTH_HOST}/token`);
+  tokenExchangeUrl.searchParams.set(
+    "grant_type",
+    "urn:opencrvs:oauth:grant-type:token-exchange",
+  );
+  tokenExchangeUrl.searchParams.set("subject_token", subjectToken);
+  tokenExchangeUrl.searchParams.set(
+    "subject_token_type",
+    "urn:ietf:params:oauth:token-type:access_token",
+  );
+  tokenExchangeUrl.searchParams.set(
+    "requested_token_type",
+    "urn:opencrvs:oauth:token-type:single_record_token",
+  );
+  tokenExchangeUrl.searchParams.set("event_id", eventId);
+  tokenExchangeUrl.searchParams.set("action_id", actionId);
+
+  const tokenResponse = await fetch(tokenExchangeUrl.toString(), {
+    method: "POST",
+  });
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(
+      `Failed to exchange token: ${tokenResponse.status} - ${error}`,
+    );
+  }
+
+  const tokenData = await tokenResponse.json();
+  const newToken = tokenData.access_token;
+
+  if (!newToken) {
+    throw new Error(
+      "No access token received from auth service in token exchange response",
+    );
+  }
+
+  return newToken as string;
+};
+
 export type ReplaceTokenRequest = FastifyRequest<{
   Params: { id: string };
   Body: z.infer<typeof ReplaceTokenSchema>;
@@ -117,53 +177,12 @@ export const replaceTokenByIdHandler = async (
   const { token: inputToken } = request.body;
 
   try {
-    // Fetch the existing token from the database
     const existingTransaction = getTransaction(id);
     const { eventId, actionId } = decode(
       existingTransaction.token,
     ) as TokenPayload;
 
-    console.log("Auth url:", env.AUTH_HOST);
-    // Build the token exchange URL
-    const tokenExchangeUrl = new URL(`${env.AUTH_HOST}/token`);
-    tokenExchangeUrl.searchParams.set(
-      "grant_type",
-      "urn:opencrvs:oauth:grant-type:token-exchange",
-    );
-    tokenExchangeUrl.searchParams.set("subject_token", inputToken);
-    tokenExchangeUrl.searchParams.set(
-      "subject_token_type",
-      "urn:ietf:params:oauth:token-type:access_token",
-    );
-    tokenExchangeUrl.searchParams.set(
-      "requested_token_type",
-      "urn:opencrvs:oauth:token-type:single_record_token",
-    );
-    tokenExchangeUrl.searchParams.set("event_id", eventId);
-    tokenExchangeUrl.searchParams.set("action_id", actionId);
-
-    // Fetch the new token from AUTH service
-    const tokenResponse = await fetch(tokenExchangeUrl.toString(), {
-      method: "POST",
-    });
-
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      throw new Error(
-        `Failed to exchange token: ${tokenResponse.status} - ${error}`,
-      );
-    }
-
-    const tokenData = await tokenResponse.json();
-    const newToken = tokenData.access_token;
-
-    if (!newToken) {
-      throw new Error(
-        "No access token received from auth service in token exchange response",
-      );
-    }
-
-    // Update the database with the new token
+    const newToken = await exchangeSingleRecordToken(inputToken, eventId, actionId);
     updateTransactionToken(id, newToken);
 
     reply.status(200).send({ success: true });
@@ -173,6 +192,59 @@ export const replaceTokenByIdHandler = async (
       error instanceof Error ? error.message : "Unknown error occurred";
 
     reply.status(400).send({ error: message });
+  }
+};
+
+export type StoreTransactionsRequest = FastifyRequest<{
+  Body: z.infer<typeof StoreTransactionsSchema>;
+}>;
+
+export const storeTransactionsHandler = async (
+  request: StoreTransactionsRequest,
+  reply: FastifyReply,
+) => {
+  const authHeader = request.headers.authorization;
+  const subjectToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : authHeader;
+
+  if (!subjectToken) {
+    return reply.status(401).send({
+      error: "Missing bearer token in Authorization header.",
+    });
+  }
+
+  const { records } = request.body;
+
+  try {
+    const transactions = await Promise.all(
+      records.map(async ({ id, registration_number, event_id, action_id }) => {
+        const token = await exchangeSingleRecordToken(
+          subjectToken,
+          event_id,
+          action_id,
+        );
+
+        return {
+          id,
+          token,
+          registrationNumber: registration_number,
+        };
+      }),
+    );
+
+    insertTransactions(transactions);
+
+    return reply.status(200).send({
+      success: true,
+      insertedCount: transactions.length,
+    });
+  } catch (error) {
+    console.error("Error storing transaction batch:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+
+    return reply.status(400).send({ error: message });
   }
 };
 

@@ -113,6 +113,40 @@ export const insertTransaction = (
     )
     .run(id, token, registrationNumber, actionType ?? null, requestedId ?? null);
 
+export const insertTransactions = (
+  records: Array<{
+    id: string;
+    token: string;
+    registrationNumber: string;
+    actionType?: string;
+    requestedId?: string;
+  }>,
+) => {
+  const insert = database.prepare(
+    `INSERT INTO transactions (id, token, registration_number, action_type, requested_id)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       token = excluded.token,
+       registration_number = excluded.registration_number,
+       action_type = excluded.action_type,
+       requested_id = excluded.requested_id`,
+  );
+
+  const runInTransaction = database.transaction((items) => {
+    for (const item of items) {
+      insert.run(
+        item.id,
+        item.token,
+        item.registrationNumber,
+        item.actionType ?? null,
+        item.requestedId ?? null,
+      );
+    }
+  });
+
+  runInTransaction(records);
+};
+
 /**
  * Looks up the MOSIP identifier previously stored for a registration number.
  */

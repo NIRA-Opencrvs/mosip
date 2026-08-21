@@ -23,6 +23,40 @@ export type OpenCRVSRequest = FastifyRequest<{
   Body: z.infer<typeof VerifySchema>;
 }>;
 
+/** IDA's business exception for a NIN that has already been deactivated. */
+const NIN_ALREADY_DEACTIVATED = "IDA-MLC-032";
+
+/**
+ * Transaction ids are `${page}-${eventId}`, set by country config
+ */
+const isMotherOrFatherVerification = (transactionId: string | undefined) =>
+  transactionId?.startsWith("mother-") || transactionId?.startsWith("father-") || false;
+
+/**
+ * Turns IDA's answer into a verdict.
+ */
+export const resolveVerificationStatus = ({
+  authStatus,
+  errors,
+  transactionId,
+}: {
+  authStatus: boolean;
+  errors?: { errorCode: string }[];
+  transactionId?: string;
+}): VerifyNidResult["status"] => {
+  if (authStatus) {
+    return "verified";
+  }
+
+  const ninAlreadyDeactivated =
+    !!errors?.length &&
+    errors.every(({ errorCode }) => errorCode === NIN_ALREADY_DEACTIVATED);
+
+  return ninAlreadyDeactivated && isMotherOrFatherVerification(transactionId)
+    ? "verified"
+    : "failed";
+};
+
 /** Handles the calls coming from OpenCRVS countryconfig */
 export const verifyHandler = async (
   request: OpenCRVSRequest,
@@ -45,14 +79,14 @@ export const verifyHandler = async (
   });
 
   const authStatus = result.response.authStatus;
+  const transactionId = request.body.transactionId;
 
-  const isDeceasedError =
-    !!result.errors?.length &&
-    result.errors.every(({ errorCode }) => errorCode === "IDA-MLC-032");
+  const status = resolveVerificationStatus({
+    authStatus,
+    errors: result.errors,
+    transactionId,
+  });
 
-  const status: VerifyNidResult["status"] =
-    authStatus || isDeceasedError ? "verified" : "failed";
-        
   let reasons: VerifyNidResult["reasons"];
   if (status === "failed") {
     const mapped = mapIdaError(result.errors);
@@ -60,8 +94,6 @@ export const verifyHandler = async (
   }
 
   const verifyResult: VerifyNidResult = { status, reasons };
-
-  const transactionId = request.body.transactionId;
 
   if (transactionId) {
     request.log.info({

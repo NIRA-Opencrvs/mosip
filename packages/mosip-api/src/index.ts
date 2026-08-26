@@ -40,6 +40,18 @@ import {
   deleteFailedRecordHandler,
   forceRetryRecordHandler,
 } from "./routes/batch-retry-debug";
+import { startIdaRetryJob } from "./ida-retry";
+import {
+  enqueueVerificationHandler,
+  EnqueueVerificationSchema,
+} from "./routes/ida-retry";
+import {
+  getPendingVerificationsHandler,
+  triggerIdaRetryHandler,
+  forceRetryVerificationHandler,
+  resolveVerificationHandler,
+  deleteVerificationHandler,
+} from "./routes/ida-retry-debug";
 
 const envToLogger = {
   development: {
@@ -62,7 +74,12 @@ const AUTH_EXEMPT_ROUTES = new Set([
   "/debug/pending-records",
   "/debug/retry-batch",
   "/debug/force-retry/:id",
-  "/debug/failed-records/:id"
+  "/debug/failed-records/:id",
+  "/debug/ida-retry",
+  "/debug/ida-retry/run",
+  "/debug/ida-retry/:id/retry",
+  "/debug/ida-retry/:id/resolve",
+  "/debug/ida-retry/:id"
 ]);
 
 const initRoutes = (app: FastifyInstance) => {
@@ -206,6 +223,53 @@ const initRoutes = (app: FastifyInstance) => {
     handler: forceRetryRecordHandler,
   });
 
+  /*
+   * IDA verification retry
+   *
+   * `/ida-retry/jobs` is called by countryconfig with the record-scoped action
+   * confirmation token, so it authenticates like any other route. The debug
+   * routes deliberately are NOT in AUTH_EXEMPT_ROUTES: they expose record
+   * identifiers and can force an action to a conclusion.
+   */
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/ida-retry/jobs",
+    handler: enqueueVerificationHandler,
+    schema: {
+      body: EnqueueVerificationSchema,
+    },
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "GET",
+    url: "/debug/ida-retry",
+    handler: getPendingVerificationsHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/ida-retry/run",
+    handler: triggerIdaRetryHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/ida-retry/:id/retry",
+    handler: forceRetryVerificationHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/ida-retry/:id/resolve",
+    handler: resolveVerificationHandler,
+  });
+
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "DELETE",
+    url: "/debug/ida-retry/:id",
+    handler: deleteVerificationHandler,
+  });
+
   registerPrnValidationRoutes(app);
 };
 
@@ -338,8 +402,12 @@ async function run() {
   // Start batch retry job (runs every 5 minutes by default)
   const retryJobInterval = startBatchRetryJob(app);
 
+  // Start IDA verification retry job (no-op unless IDA_RETRY_ENABLED)
+  const idaRetryInterval = startIdaRetryJob(app);
+
   process.on("exit", () => {
     clearInterval(retryJobInterval);
+    if (idaRetryInterval) clearInterval(idaRetryInterval);
     clearInterval(webSubInterval);
     database.close();
     app.close();

@@ -18,6 +18,7 @@ interface MOSIPAuthenticatorConfig {
   decryptP12FilePassword: string;
   signP12FilePath: string;
   signP12FilePassword: string;
+  authTimeoutMs?: number;
 }
 
 type IdentityInfo = { value: string; language: string };
@@ -114,6 +115,7 @@ export default class MOSIPAuthenticator {
         "content-type": "application/json",
         Signature: signatureHeader,
       },
+      signal: AbortSignal.timeout(this.config.authTimeoutMs ?? 15_000),
     });
   }
 }

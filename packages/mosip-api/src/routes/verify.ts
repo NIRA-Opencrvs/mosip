@@ -57,34 +57,30 @@ export const resolveVerificationStatus = ({
     : "failed";
 };
 
-/** Handles the calls coming from OpenCRVS countryconfig */
-export const verifyHandler = async (
-  request: OpenCRVSRequest,
-  reply: FastifyReply,
-) => {
+/** One verification, so the retry job can reuse it instead of duplicating it. */
+
+
+export const runVerification = async (body: z.infer<typeof VerifySchema>) => {
   const result = await verifyNid({
-    nid: request.body.nid,
-    dob: request.body.dob
-      ? formatDate(request.body.dob, "dd/MM/yyyy")
-      : undefined,
+    nid: body.nid,
+    dob: body.dob ? formatDate(body.dob, "dd/MM/yyyy") : undefined,
     name: [
       {
         language: "eng",
-        value: `${request.body.name.surname} ${request.body.name.firstname} ${request.body.name.middlename}`,
+        value: `${body.name.surname} ${body.name.firstname} ${body.name.middlename}`,
       },
     ],
-    gender: request.body.gender
-      ? [{ language: "eng", value: request.body.gender }]
+    gender: body.gender
+      ? [{ language: "eng", value: body.gender }]
       : undefined,
   });
 
   const authStatus = result.response.authStatus;
-  const transactionId = request.body.transactionId;
 
   const status = resolveVerificationStatus({
     authStatus,
     errors: result.errors,
-    transactionId,
+    transactionId: body.transactionId,
   });
 
   let reasons: VerifyNidResult["reasons"];
@@ -93,13 +89,27 @@ export const verifyHandler = async (
     reasons = mapped.length > 0 ? mapped : ["UNKNOWN"];
   }
 
+  return { status, reasons, authStatus, errors: result.errors };
+};
+
+/** Handles the calls coming from OpenCRVS countryconfig */
+export const verifyHandler = async (
+  request: OpenCRVSRequest,
+  reply: FastifyReply,
+) => {
+  const transactionId = request.body.transactionId;
+
+  const { status, reasons, authStatus, errors } = await runVerification(
+    request.body,
+  );
+
   const verifyResult: VerifyNidResult = { status, reasons };
 
   if (transactionId) {
     request.log.info({
       transactionId,
       authStatus,
-      errors: result.errors,
+      errors,
       status,
       reasons,
     });

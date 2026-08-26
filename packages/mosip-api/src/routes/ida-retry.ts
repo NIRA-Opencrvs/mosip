@@ -17,6 +17,18 @@ export const EnqueueVerificationSchema = z.object({
   eventType: z.string().min(1),
   actionType: z.string().min(1),
   event: z.record(z.unknown()),
+  verified: z.record(z.unknown()).optional(),
+  pendingRequests: z
+    .array(
+      z.object({
+        nid: z.string().min(1),
+        dob: z.string().optional(),
+        name: z.record(z.unknown()),
+        gender: z.string().optional(),
+        transactionId: z.string().optional(),
+      }),
+    )
+    .optional(),
   error: z.string().default("IDA unavailable"),
 });
 
@@ -36,8 +48,16 @@ export const enqueueVerificationHandler = async (
   request: EnqueueVerificationRequest,
   reply: FastifyReply,
 ) => {
-  const { eventId, actionId, eventType, actionType, event, error } =
-    request.body;
+  const {
+    eventId,
+    actionId,
+    eventType,
+    actionType,
+    event,
+    verified,
+    pendingRequests,
+    error,
+  } = request.body;
 
   if (!env.IDA_RETRY_ENABLED) {
     request.log.warn(
@@ -63,11 +83,20 @@ export const enqueueVerificationHandler = async (
     actionType,
     token,
     eventDocument: event,
+    verified,
+    pendingRequests,
     lastError: error,
   });
 
   request.log.info(
-    { eventId, actionId, eventType, actionType, created },
+    {
+      eventId,
+      actionId,
+      eventType,
+      actionType,
+      created,
+      pendingRequestCount: pendingRequests?.length ?? 0,
+    },
     created
       ? "IDA verification parked for retry"
       : "IDA verification already queued, enqueue ignored",

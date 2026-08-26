@@ -1,6 +1,8 @@
 import { FastifyInstance } from "fastify";
+import type { VerifyNidResult } from "@opencrvs/mosip/api";
 import * as db from "./database";
 import { env } from "./constants";
+import { runVerification } from "./routes/verify";
 
 /*
  * A durable timer, holding no business logic: it decides when to retry a parked
@@ -36,9 +38,48 @@ const isFinalAttempt = (job: db.PendingVerification) =>
   job.retryCount + 1 >= env.IDA_RETRY_MAX_ATTEMPTS ||
   hoursSince(job.createdAt) >= env.IDA_RETRY_MAX_AGE_HOURS;
 
+/**
+ * Replays the calls that could not be completed, merging them into the verdicts
+ * already obtained. Returns undefined as soon as IDA is unreachable again: a
+ * partial set cannot complete the action.
+ */
+const replayPendingRequests = async (
+  app: FastifyInstance,
+  job: db.PendingVerification,
+): Promise<Record<string, VerifyNidResult> | undefined> => {
+  const verified = { ...job.verified } as Record<string, VerifyNidResult>;
+
+  for (const request of job.pendingRequests ?? []) {
+    try {
+      const { status, reasons } = await runVerification(
+        request as unknown as Parameters<typeof runVerification>[0],
+      );
+
+      if (request.transactionId) {
+        verified[request.transactionId] = { status, reasons };
+      }
+    } catch (error) {
+      app.log.warn(
+        {
+          jobId: job.id,
+          eventId: job.eventId,
+          transactionId: request.transactionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "⏳ IDA still unavailable while replaying a pending verification",
+      );
+
+      return undefined;
+    }
+  }
+
+  return verified;
+};
+
 const callCountryConfig = async (
   job: db.PendingVerification,
   finalAttempt: boolean,
+  verified?: Record<string, VerifyNidResult>,
 ) => {
   const url = new URL("/ida-retry/process", env.COUNTRY_CONFIG_URL).toString();
 
@@ -56,6 +97,8 @@ const callCountryConfig = async (
       event: job.eventDocument,
       attempt: job.retryCount + 1,
       finalAttempt,
+      // The re-run serves these from cache instead of calling IDA again.
+      ...(verified ? { verified } : {}),
     }),
     signal: AbortSignal.timeout(env.IDA_RETRY_CALLBACK_TIMEOUT_MS),
   });
@@ -87,7 +130,28 @@ export const processVerificationJob = async (
   const finalAttempt = forceFinal || isFinalAttempt(job);
 
   try {
-    const { outcome, error } = await callCountryConfig(job, finalAttempt);
+    let verified: Record<string, VerifyNidResult> | undefined;
+
+    if (job.pendingRequests?.length) {
+      verified = await replayPendingRequests(app, job);
+
+      if (!verified && !finalAttempt) {
+        db.reschedulePendingVerification(
+          job.id,
+          "IDA still unavailable",
+          env.IDA_RETRY_BACKOFF_BASE_MINUTES,
+        );
+
+        return { outcome: "retry", error: "IDA still unavailable" };
+      }
+    }
+
+
+    const { outcome, error } = await callCountryConfig(
+      job,
+      finalAttempt,
+      verified,
+    );
 
     if (outcome === "resolved" || outcome === "dropped") {
       db.removePendingVerification(job.id);

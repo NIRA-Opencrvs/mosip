@@ -113,6 +113,10 @@ export const env = cleanEnv(process.env, {
   IDA_AUTH_URL: str({
     devDefault: "http://localhost:20240/idauthentication/v1/auth",
   }),
+  IDA_AUTH_TIMEOUT_MS: num({
+    default: 15000,
+    desc: "Caps a single IDA auth call. Without it a hung IDA would stall the retry worker, which has no outer timeout of its own.",
+  }),
 
   AUTH_HOST: url({
     devDefault: "http://localhost:7070",

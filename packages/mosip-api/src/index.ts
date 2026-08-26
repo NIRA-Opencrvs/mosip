@@ -75,6 +75,11 @@ const AUTH_EXEMPT_ROUTES = new Set([
   "/debug/retry-batch",
   "/debug/force-retry/:id",
   "/debug/failed-records/:id",
+  "/debug/ida-retry",
+  "/debug/ida-retry/run",
+  "/debug/ida-retry/:id/retry",
+  "/debug/ida-retry/:id/resolve",
+  "/debug/ida-retry/:id"
 ]);
 
 const initRoutes = (app: FastifyInstance) => {

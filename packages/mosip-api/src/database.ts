@@ -47,6 +47,8 @@ const PENDING_VERIFICATIONS_SCHEMA = `
     action_type TEXT NOT NULL,
     token TEXT NOT NULL,
     event_document TEXT NOT NULL,
+    verified TEXT,
+    pending_requests TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
     next_retry_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -489,6 +491,18 @@ export const removeFailedRecordAndReturnData = (id: string) => {
 };
 
 
+/** One IDA call that could not be completed, stored verbatim so it can be replayed. */
+export type PendingVerificationRequest = {
+  nid: string;
+  dob?: string;
+  name: Record<string, unknown>;
+  gender?: string;
+  transactionId?: string;
+};
+
+/** A verdict IDA returned, by transaction id. */
+export type VerifiedResults = Record<string, unknown>;
+
 export interface PendingVerification {
   id: string;
   eventId: string;
@@ -497,6 +511,10 @@ export interface PendingVerification {
   actionType: string;
   token: string;
   eventDocument: Record<string, unknown>;
+  /** Verdicts already obtained, by transaction id. */
+  verified?: VerifiedResults;
+  /** The calls still to be replayed. */
+  pendingRequests?: PendingVerificationRequest[];
   retryCount: number;
   lastError?: string;
   nextRetryAt: string;
@@ -512,6 +530,8 @@ type PendingVerificationRow = {
   action_type: string;
   token: string;
   event_document: string;
+  verified: string | null;
+  pending_requests: string | null;
   retry_count: number;
   last_error: string | null;
   next_retry_at: string;
@@ -519,7 +539,10 @@ type PendingVerificationRow = {
   updated_at: string;
 };
 
-const PENDING_VERIFICATION_COLUMNS = `id, event_id, action_id, event_type, action_type, token, event_document, retry_count, last_error, next_retry_at, created_at, updated_at`;
+const PENDING_VERIFICATION_COLUMNS = `id, event_id, action_id, event_type, action_type, token, event_document, verified, pending_requests, retry_count, last_error, next_retry_at, created_at, updated_at`;
+
+const parseJsonColumn = <T>(value: string | null): T | undefined =>
+  value ? (JSON.parse(value) as T) : undefined;
 
 const toPendingVerification = (
   row: PendingVerificationRow,
@@ -531,6 +554,10 @@ const toPendingVerification = (
   actionType: row.action_type,
   token: row.token,
   eventDocument: JSON.parse(row.event_document) as Record<string, unknown>,
+  verified: parseJsonColumn<VerifiedResults>(row.verified),
+  pendingRequests: parseJsonColumn<PendingVerificationRequest[]>(
+    row.pending_requests,
+  ),
   retryCount: row.retry_count,
   lastError: row.last_error ?? undefined,
   nextRetryAt: row.next_retry_at,
@@ -550,6 +577,8 @@ export const insertPendingVerification = ({
   actionType,
   token,
   eventDocument,
+  verified,
+  pendingRequests,
   lastError,
 }: {
   eventId: string;
@@ -558,13 +587,15 @@ export const insertPendingVerification = ({
   actionType: string;
   token: string;
   eventDocument: Record<string, unknown>;
+  verified?: VerifiedResults;
+  pendingRequests?: PendingVerificationRequest[];
   lastError: string;
 }) => {
   const result = database
     .prepare(
       `INSERT INTO pending_verifications
-         (id, event_id, action_id, event_type, action_type, token, event_document, last_error, retry_count, next_retry_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+         (id, event_id, action_id, event_type, action_type, token, event_document, verified, pending_requests, last_error, retry_count, next_retry_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
        ON CONFLICT DO NOTHING`,
     )
     .run(
@@ -575,6 +606,8 @@ export const insertPendingVerification = ({
       actionType,
       token,
       JSON.stringify(eventDocument),
+      verified ? JSON.stringify(verified) : null,
+      pendingRequests?.length ? JSON.stringify(pendingRequests) : null,
       lastError,
     );
 

@@ -354,7 +354,12 @@ export const getFailedRecordsForRetry = (limit = 10) => {
     token: record.token,
     requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
     audit: JSON.parse(record.audit) as Record<string, unknown>,
-    metaInfo: record.meta_info ? JSON.parse(record.meta_info) as Array<{label: string, value: string}> : undefined,
+    metaInfo: record.meta_info
+      ? JSON.parse(JSON.parse(record.meta_info).metaData) as Array<{
+          label: string
+          value: string
+        }>
+      : undefined,
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,
@@ -393,7 +398,12 @@ export const getAllFailedRecords = (limit = 10) => {
     token: record.token,
     requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
     audit: JSON.parse(record.audit) as Record<string, unknown>,
-    metaInfo: record.meta_info ? JSON.parse(record.meta_info) : undefined,
+    metaInfo: record.meta_info
+      ? JSON.parse(JSON.parse(record.meta_info).metaData) as Array<{
+          label: string
+          value: string
+        }>
+      : undefined,
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,
@@ -433,7 +443,12 @@ export const getFailedRecordById = (id: string) => {
     token: record.token,
     requestFields: JSON.parse(record.request_fields) as Record<string, unknown>,
     audit: JSON.parse(record.audit) as Record<string, unknown>,
-    metaInfo: record.meta_info ? JSON.parse(record.meta_info) as Array<{label: string, value: string}>  : undefined,
+    metaInfo: record.meta_info
+      ? JSON.parse(JSON.parse(record.meta_info).metaData) as Array<{
+          label: string
+          value: string
+        }>
+      : undefined,
     notification: record.notification ? JSON.parse(record.notification) : undefined,
     retryCount: record.retry_count,
     lastError: record.last_error,

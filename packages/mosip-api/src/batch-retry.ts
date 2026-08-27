@@ -70,7 +70,9 @@ export const processPendingRecords = async (
             notification: record.notification,
           });
 
-          const result = record.metaInfo?.reduce((acc, item) => {
+          const metaData = JSON.parse(record?.metaInfo?.metaData) as Array<{label: string, value: string}>;
+
+          const result = metaData.reduce((acc, item) => {
               acc[item.label] = item.value;
               return acc;
           }, {} as Record<string, string>);
@@ -158,7 +160,7 @@ export const processSingleRecord = async (
     token: string;
     requestFields: Record<string, unknown>;
     audit: Record<string, unknown>;
-    metaInfo?: Array<{label: string, value: string}> ;
+    metaInfo?: any;
     notification?: Record<string, unknown>;
   },
 ) => {
@@ -199,12 +201,12 @@ export const processSingleRecord = async (
         notification: record.notification,
       });
 
-      const metaData  = record.metaInfo;
+      const metaData = JSON.parse(record?.metaInfo?.metaData) as Array<{label: string, value: string}>;
 
-      const result = record.metaInfo?.reduce((acc, item) => {
-              acc[item.label] = item.value;
-              return acc;
-          }, {} as Record<string, string>);
+      const result = metaData.reduce((acc, item) => {
+          acc[item.label] = item.value;
+          return acc;
+      }, {} as Record<string, string>);
 
       // Success - insert transaction and remove from failed records
       const deathCertificateNumber = record.requestFields.deathCertificateNumber as string;

@@ -19,7 +19,11 @@ export type RetryOutcome =
   /** The job can never complete (e.g. the action is already confirmed). Drop it. */
   | "dropped";
 
-type ProcessResponse = { outcome?: RetryOutcome; error?: string };
+type ProcessResponse = {
+  outcome?: RetryOutcome;
+  decision?: "accepted" | "rejected";
+  error?: string;
+};
 
 const isProcessResponse = (body: unknown): body is ProcessResponse =>
   typeof body === "object" && body !== null;
@@ -76,6 +80,14 @@ const replayPendingRequests = async (
   return verified;
 };
 
+/** Flattens the verdicts into `page=status(reasons)` for one readable log line. */
+const summariseVerdicts = (verified: Record<string, VerifyNidResult>) =>
+  Object.entries(verified).map(([transactionId, result]) =>
+    result.status === "failed"
+      ? `${transactionId}=failed(${(result.reasons ?? []).join("|")})`
+      : `${transactionId}=${result.status}`,
+  );
+
 const callCountryConfig = async (
   job: db.PendingVerification,
   finalAttempt: boolean,
@@ -94,7 +106,6 @@ const callCountryConfig = async (
       actionId: job.actionId,
       eventType: job.eventType,
       actionType: job.actionType,
-      event: job.eventDocument,
       attempt: job.retryCount + 1,
       finalAttempt,
       // The re-run serves these from cache instead of calling IDA again.
@@ -147,7 +158,7 @@ export const processVerificationJob = async (
     }
 
 
-    const { outcome, error } = await callCountryConfig(
+    const { outcome, decision, error } = await callCountryConfig(
       job,
       finalAttempt,
       verified,
@@ -156,6 +167,7 @@ export const processVerificationJob = async (
     if (outcome === "resolved" || outcome === "dropped") {
       db.removePendingVerification(job.id);
 
+      // Records the verdict, not just that the job finished.
       app.log.info(
         {
           jobId: job.id,
@@ -163,8 +175,13 @@ export const processVerificationJob = async (
           attempt: job.retryCount + 1,
           finalAttempt,
           outcome,
+          decision,
+          verifications: verified && summariseVerdicts(verified),
+          lastError: error ?? job.lastError,
         },
-        "✅ IDA verification resolved, job removed",
+        outcome === "dropped"
+          ? "✅ IDA verification job dropped, already confirmed elsewhere"
+          : `✅ IDA verification resolved (${decision ?? "unknown"}), job removed`,
       );
 
       return { outcome };

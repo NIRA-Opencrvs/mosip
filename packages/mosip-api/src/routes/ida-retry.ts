@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { insertPendingVerification, pendingVerificationId } from "../database";
+import { insertPendingVerification } from "../database";
 import { env } from "../constants";
 
 /**
@@ -12,11 +12,11 @@ import { env } from "../constants";
  * parallel reimplementation that would drift.
  */
 export const EnqueueVerificationSchema = z.object({
+  trackingId: z.string().min(1),
   eventId: z.string().min(1),
   actionId: z.string().min(1),
   eventType: z.string().min(1),
   actionType: z.string().min(1),
-  event: z.record(z.unknown()),
   verified: z.record(z.unknown()).optional(),
   pendingRequests: z
     .array(
@@ -49,11 +49,11 @@ export const enqueueVerificationHandler = async (
   reply: FastifyReply,
 ) => {
   const {
+    trackingId,
     eventId,
     actionId,
     eventType,
     actionType,
-    event,
     verified,
     pendingRequests,
     error,
@@ -77,12 +77,12 @@ export const enqueueVerificationHandler = async (
   const token = request.headers.authorization!.split(" ")[1];
 
   const created = insertPendingVerification({
+    trackingId,
     eventId,
     actionId,
     eventType,
     actionType,
     token,
-    eventDocument: event,
     verified,
     pendingRequests,
     lastError: error,
@@ -104,5 +104,5 @@ export const enqueueVerificationHandler = async (
 
   return reply
     .code(200)
-    .send({ id: pendingVerificationId(eventId, actionId), created });
+    .send({ id: trackingId, created });
 };

@@ -46,7 +46,6 @@ const PENDING_VERIFICATIONS_SCHEMA = `
     event_type TEXT NOT NULL,
     action_type TEXT NOT NULL,
     token TEXT NOT NULL,
-    event_document TEXT NOT NULL,
     verified TEXT,
     pending_requests TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
@@ -510,7 +509,6 @@ export interface PendingVerification {
   eventType: string;
   actionType: string;
   token: string;
-  eventDocument: Record<string, unknown>;
   /** Verdicts already obtained, by transaction id. */
   verified?: VerifiedResults;
   /** The calls still to be replayed. */
@@ -529,7 +527,6 @@ type PendingVerificationRow = {
   event_type: string;
   action_type: string;
   token: string;
-  event_document: string;
   verified: string | null;
   pending_requests: string | null;
   retry_count: number;
@@ -539,7 +536,7 @@ type PendingVerificationRow = {
   updated_at: string;
 };
 
-const PENDING_VERIFICATION_COLUMNS = `id, event_id, action_id, event_type, action_type, token, event_document, verified, pending_requests, retry_count, last_error, next_retry_at, created_at, updated_at`;
+const PENDING_VERIFICATION_COLUMNS = `id, event_id, action_id, event_type, action_type, token, verified, pending_requests, retry_count, last_error, next_retry_at, created_at, updated_at`;
 
 const parseJsonColumn = <T>(value: string | null): T | undefined =>
   value ? (JSON.parse(value) as T) : undefined;
@@ -553,7 +550,6 @@ const toPendingVerification = (
   eventType: row.event_type,
   actionType: row.action_type,
   token: row.token,
-  eventDocument: JSON.parse(row.event_document) as Record<string, unknown>,
   verified: parseJsonColumn<VerifiedResults>(row.verified),
   pendingRequests: parseJsonColumn<PendingVerificationRequest[]>(
     row.pending_requests,
@@ -565,28 +561,25 @@ const toPendingVerification = (
   updatedAt: row.updated_at,
 });
 
-/** One job per action; a unique index also allows only one per record. */
-export const pendingVerificationId = (eventId: string, actionId: string) =>
-  `${eventId}:${actionId}`;
-
 /** Idempotent. Returns true when a new job was created. */
 export const insertPendingVerification = ({
+  trackingId,
   eventId,
   actionId,
   eventType,
   actionType,
   token,
-  eventDocument,
   verified,
   pendingRequests,
   lastError,
 }: {
+  /** The event's trackingId, used as the row id. */
+  trackingId: string;
   eventId: string;
   actionId: string;
   eventType: string;
   actionType: string;
   token: string;
-  eventDocument: Record<string, unknown>;
   verified?: VerifiedResults;
   pendingRequests?: PendingVerificationRequest[];
   lastError: string;
@@ -594,18 +587,17 @@ export const insertPendingVerification = ({
   const result = database
     .prepare(
       `INSERT INTO pending_verifications
-         (id, event_id, action_id, event_type, action_type, token, event_document, verified, pending_requests, last_error, retry_count, next_retry_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+         (id, event_id, action_id, event_type, action_type, token, verified, pending_requests, last_error, retry_count, next_retry_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
        ON CONFLICT DO NOTHING`,
     )
     .run(
-      pendingVerificationId(eventId, actionId),
+      trackingId,
       eventId,
       actionId,
       eventType,
       actionType,
       token,
-      JSON.stringify(eventDocument),
       verified ? JSON.stringify(verified) : null,
       pendingRequests?.length ? JSON.stringify(pendingRequests) : null,
       lastError,

@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import {
   getAllTransactions,
   getTransactionAndDiscard,
+  discardTransaction,
   updateTransactionToken,
   updateAllTransactionsToken,
   getTransaction,
@@ -12,6 +13,7 @@ import { TokenPayload } from "./websub-credential-issued";
 import { decode } from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../constants";
+import { rejectRegistration } from "../opencrvs-api";
 
 interface AuthenticatedUser {
   scope: string[];
@@ -275,5 +277,41 @@ export const replaceAllTokensHandler = async (
       error instanceof Error ? error.message : "Unknown error occurred";
 
     reply.status(500).send({ error: message });
+  }
+};
+
+/*
+ * Rejects a record by transaction id
+ */
+export type RejectTransactionRequest = FastifyRequest<{
+  Params: { id: string };
+  Querystring: { failureReason?: string };
+}>;
+
+export const rejectTransactionHandler = async (
+  request: RejectTransactionRequest,
+  reply: FastifyReply,
+) => {
+  const { id } = request.params;
+  const { failureReason } = request.query;
+
+  if (!failureReason) {
+    return reply.status(400).send({ error: "'failureReason' is required." });
+  }
+
+  try {
+    const { token } = getTransaction(id);
+    const { eventId, actionId } = decode(token) as TokenPayload;
+
+    await rejectRegistration({ eventId, actionId, failureReason }, { token });
+
+    discardTransaction(id);
+
+    return reply.status(200).send({ id, eventId, actionId, status: "rejected" });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error occurred";
+
+    return reply.status(404).send({ error: message });
   }
 };

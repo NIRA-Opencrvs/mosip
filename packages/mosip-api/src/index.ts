@@ -29,6 +29,7 @@ import {
   ReplaceTokenSchema,
   StoreTransactionsSchema,
   storeTransactionsHandler,
+  rejectTransactionHandler,
 } from "./routes/debug-sqlite";
 import { verifyHandler, VerifySchema } from "./routes/verify";
 import { initializeIDSchema } from "./mosip-api";
@@ -79,7 +80,8 @@ const AUTH_EXEMPT_ROUTES = new Set([
   "/debug/ida-retry/run",
   "/debug/ida-retry/:id/retry",
   "/debug/ida-retry/:id/resolve",
-  "/debug/ida-retry/:id"
+  "/debug/ida-retry/:id",
+  "/debug/remove-transaction/:id/reject"
 ]);
 
 const initRoutes = (app: FastifyInstance) => {
@@ -268,6 +270,12 @@ const initRoutes = (app: FastifyInstance) => {
     method: "DELETE",
     url: "/debug/ida-retry/:id",
     handler: deleteVerificationHandler,
+  });
+  
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/debug/remove-transaction/:id/reject",
+    handler: rejectTransactionHandler,
   });
 
   registerPrnValidationRoutes(app);

@@ -47,15 +47,6 @@ interface AuthParams {
  */
 const toNin = (individualId: string) => individualId.split("@")[0];
 
-/**
- * The demographics that go on the wire are encrypted, so the request log alone
- * does not tell you *what* was sent for matching. Set
- * `IDA_LOG_AUTH_DATA=true` to additionally print the plaintext demographic
- * block. It contains PII (name / dob / gender), so keep it off outside of
- * active debugging.
- */
-const shouldLogPlainAuthData = () => process.env.IDA_LOG_AUTH_DATA === "true";
-
 export default class MOSIPAuthenticator {
   private encryptPemCertificate: string;
   private signPemPrivateKey: string;
@@ -109,6 +100,21 @@ export default class MOSIPAuthenticator {
       timestamp: new Date().toISOString(),
     };
 
+    const nin = toNin(params.individualId);
+    // One prefix for every line of this transaction, so a single grep on the
+    // NIN or on either id pulls the whole exchange out of the logs.
+    const logPrefix = `NIN:: ${nin} :: transactionId:: ${params.transactionId ?? "-"} :: ida_transactionID:: ${idaTransactionId}`;
+
+    // Logged before encryption: this is the payload as IDA will see it after
+    // decrypting, which is what you actually need when a match fails. The
+    // encrypted form on the wire is opaque and tells you nothing.
+    console.log(
+      `${logPrefix} :: auth_request::${JSON.stringify({
+        ...requestData,
+        request: authData,
+      })}`,
+    );
+
     const {
       encryptedAuthB64Data,
       encryptedAesKeyB64,
@@ -121,17 +127,6 @@ export default class MOSIPAuthenticator {
       requestSessionKey: encryptedAesKeyB64,
       requestHMAC: encryptedAuthDataHashBase64,
     });
-
-    const nin = toNin(params.individualId);
-    // One prefix for every line of this transaction, so a single grep on the
-    // NIN or on either id pulls the whole exchange out of the logs.
-    const logPrefix = `NIN:: ${nin} :: transactionId:: ${params.transactionId ?? "-"} :: ida_transactionID:: ${idaTransactionId}`;
-
-    console.log(`${logPrefix} :: auth_request::${fullRequestJson}`);
-
-    if (shouldLogPlainAuthData()) {
-      console.log(`${logPrefix} :: auth_request_data::${JSON.stringify(authData)}`);
-    }
 
     const signatureHeader = await signAuthRequestData(
       fullRequestJson,

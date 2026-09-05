@@ -73,6 +73,7 @@ export const runVerification = async (body: z.infer<typeof VerifySchema>) => {
     gender: body.gender
       ? [{ language: "eng", value: body.gender }]
       : undefined,
+    transactionId: body.transactionId,
   });
 
   const authStatus = result.response.authStatus;

@@ -1206,6 +1206,7 @@ export const verifyNid = async ({
     decryptP12FilePassword: env.DECRYPT_P12_FILE_PASSWORD,
     signP12FilePath: env.SIGN_P12_FILE_PATH,
     signP12FilePassword: env.SIGN_P12_FILE_PASSWORD,
+    authTimeoutMs: env.IDA_AUTH_TIMEOUT_MS,
   });
 
   const response = await authenticator.auth({

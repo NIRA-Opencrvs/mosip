@@ -62,7 +62,7 @@ export const verifyHandler = async (
   request: OpenCRVSRequest,
   reply: FastifyReply,
 ) => {
-  const result = await verifyNid({
+  const verifyNidPayload = {
     nid: request.body.nid,
     dob: request.body.dob
       ? formatDate(request.body.dob, "dd/MM/yyyy")
@@ -76,7 +76,14 @@ export const verifyHandler = async (
     gender: request.body.gender
       ? [{ language: "eng", value: request.body.gender }]
       : undefined,
-  });
+  };
+
+  request.log.info(
+    { transactionId: request.body.transactionId, verifyNidPayload },
+    "Sending NID verification request to IDA",
+  );
+
+  const result = await verifyNid(verifyNidPayload);
 
   const authStatus = result.response.authStatus;
   const transactionId = request.body.transactionId;

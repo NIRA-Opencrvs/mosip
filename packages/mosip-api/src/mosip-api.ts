@@ -1188,12 +1188,15 @@ export const verifyNid = async ({
   name,
   gender,
   dob,
+  transactionId,
 }: {
   nid: string;
   /** date of birth as YYYY/MM/DD */
   dob: string | undefined;
   name: { language: string; value: string }[] | undefined;
   gender: { language: string; value: string }[] | undefined;
+  /** countryconfig's correlation id, `${page}-${eventId}`. Logging only. */
+  transactionId?: string;
 }): Promise<VerifyNidResponse> => {
   const authenticator = new MOSIPAuthenticator({
     partnerApiKey: env.PARTNER_APIKEY,
@@ -1217,6 +1220,7 @@ export const verifyNid = async ({
       gender,
     },
     consent: true,
+    transactionId,
   });
 
   if (!response.ok) {

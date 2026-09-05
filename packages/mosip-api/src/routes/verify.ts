@@ -76,6 +76,7 @@ export const verifyHandler = async (
     gender: request.body.gender
       ? [{ language: "eng", value: request.body.gender }]
       : undefined,
+    transactionId: request.body.transactionId,
   };
 
   request.log.info(

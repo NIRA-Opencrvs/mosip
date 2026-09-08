@@ -72,7 +72,7 @@ export const enqueueVerificationHandler = async (
   /*
    * The record-scoped action confirmation token this request arrived with is
    * what the retry will use to accept or reject the action later. It is valid
-   * for a week by default, comfortably longer than IDA_RETRY_MAX_AGE_HOURS.
+   * for a week by default, comfortably longer than IDA_RETRY_MAX_AGE_MINUTES.
    */
   const token = request.headers.authorization!.split(" ")[1];
 

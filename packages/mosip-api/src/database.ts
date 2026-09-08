@@ -614,7 +614,7 @@ export const hasPendingVerificationForEvent = (eventId: string): boolean =>
 /** Leases claimed jobs so a crash or slow pass cannot double-process them. */
 export const claimPendingVerifications = (
   limit: number,
-  leaseMinutes: number,
+  leaseSeconds: number,
 ) => {
   const claim = database.transaction(
     (batchSize: number, lease: number): PendingVerificationRow[] => {
@@ -630,7 +630,7 @@ export const claimPendingVerifications = (
 
       const lease_ = database.prepare(
         `UPDATE pending_verifications
-         SET next_retry_at = datetime('now', '+' || CAST(? AS TEXT) || ' minutes'),
+         SET next_retry_at = datetime('now', '+' || CAST(? AS TEXT) || ' seconds'),
              updated_at = datetime('now')
          WHERE id = ?`,
       );
@@ -643,14 +643,15 @@ export const claimPendingVerifications = (
     },
   );
 
-  return claim(limit, leaseMinutes).map(toPendingVerification);
+  return claim(limit, leaseSeconds).map(toPendingVerification);
 };
 
-/** Exponential backoff with jitter, so a backlog does not stampede IDA. */
+/** Doubling backoff, capped and jittered, so a backlog does not stampede IDA. */
 export const reschedulePendingVerification = (
   id: string,
   error: string,
-  backoffBaseMinutes: number,
+  backoffBaseSeconds: number,
+  backoffMaxSeconds: number,
 ) => {
   database
     .prepare(
@@ -658,12 +659,12 @@ export const reschedulePendingVerification = (
        SET retry_count = retry_count + 1,
            last_error = ?,
            next_retry_at = datetime('now',
-             '+' || CAST(POWER(2, MIN(retry_count, 10)) * ? AS TEXT) || ' minutes',
-             '+' || CAST(ABS(RANDOM()) % 60 AS TEXT) || ' seconds'),
+             '+' || CAST(MIN(POWER(2, MIN(retry_count, 10)) * ?, ?) AS TEXT) || ' seconds',
+             '+' || CAST(ABS(RANDOM()) % 10 AS TEXT) || ' seconds'),
            updated_at = datetime('now')
        WHERE id = ?`,
     )
-    .run(error, backoffBaseMinutes, id);
+    .run(error, backoffBaseSeconds, backoffMaxSeconds, id);
 };
 
 export const removePendingVerification = (id: string) => {

@@ -192,8 +192,8 @@ export const env = cleanEnv(process.env, {
     desc: "Kill switch for the IDA verification retry queue. When false, the queue is never drained and countryconfig keeps today's behaviour of treating an unreachable IDA as a failed verification.",
   }),
   IDA_RETRY_INTERVAL_MS: num({
-    default: 500000, 
-    desc: "Interval in milliseconds between IDA verification retry job executions",
+    default: 30000,
+    desc: "Interval in milliseconds between IDA verification retry job executions. This is the floor on every delay below: a job only moves when a poll picks it up.",
   }),
   IDA_RETRY_BATCH_LIMIT: num({
     default: 50,
@@ -201,19 +201,23 @@ export const env = cleanEnv(process.env, {
   }),
   IDA_RETRY_MAX_ATTEMPTS: num({
     default: 8,
-    desc: "Attempts before a pending verification is finalised using the pre-existing behaviour (unreachable IDA counted as a failed verification, so the record lands in Awaiting ID Update). With the default backoff this spans roughly 21 hours.",
+    desc: "Attempts before a pending verification is finalised using the pre-existing behaviour (unreachable IDA counted as a failed verification, so the record lands in Awaiting ID Update). With the default backoff the last attempt falls at roughly 40 minutes.",
   }),
-  IDA_RETRY_MAX_AGE_HOURS: num({
-    default: 48,
+  IDA_RETRY_MAX_AGE_MINUTES: num({
+    default: 45,
     desc: "Age at which a pending verification is finalised regardless of attempt count. Must stay below the action confirmation token lifetime (1 week by default).",
   }),
-  IDA_RETRY_BACKOFF_BASE_MINUTES: num({
-    default: 5,
-    desc: "Base for the exponential backoff between attempts: 5, 10, 20, 40 ... minutes, plus up to a minute of jitter",
+  IDA_RETRY_BACKOFF_BASE_SECONDS: num({
+    default: 30,
+    desc: "Delay before the first retry. Each attempt doubles it until IDA_RETRY_BACKOFF_MAX_SECONDS: 30s, 60s, 120s, 240s, 480s, 600s ... plus a few seconds of jitter.",
   }),
-  IDA_RETRY_LEASE_MINUTES: num({
-    default: 10,
-    desc: "How long a claimed job is hidden from subsequent runs. Must exceed the callback timeout so a slow pass cannot be picked up twice.",
+  IDA_RETRY_BACKOFF_MAX_SECONDS: num({
+    default: 600,
+    desc: "Ceiling for the doubling delay, so a long outage settles into a steady poll instead of drifting hours between attempts.",
+  }),
+  IDA_RETRY_LEASE_SECONDS: num({
+    default: 90,
+    desc: "How long a claimed job is hidden from subsequent runs, i.e. how soon a job is retried after the process dies mid-pass. Must stay above IDA_RETRY_CALLBACK_TIMEOUT_MS so a slow job cannot be picked up twice.",
   }),
   IDA_RETRY_CALLBACK_TIMEOUT_MS: num({
     default: 60000,

@@ -28,19 +28,28 @@ type ProcessResponse = {
 const isProcessResponse = (body: unknown): body is ProcessResponse =>
   typeof body === "object" && body !== null;
 
-const hoursSince = (timestamp: string) => {
+const minutesSince = (timestamp: string) => {
   // SQLite `datetime('now')` is UTC without a zone designator
   const created = Date.parse(`${timestamp.replace(" ", "T")}Z`);
   if (Number.isNaN(created)) {
     return 0;
   }
-  return (Date.now() - created) / 3_600_000;
+  return (Date.now() - created) / 60_000;
 };
 
 /** On the final attempt country config finalises instead of deferring again. */
 const isFinalAttempt = (job: db.PendingVerification) =>
   job.retryCount + 1 >= env.IDA_RETRY_MAX_ATTEMPTS ||
-  hoursSince(job.createdAt) >= env.IDA_RETRY_MAX_AGE_HOURS;
+  minutesSince(job.createdAt) >= env.IDA_RETRY_MAX_AGE_MINUTES;
+
+/** Pushes a job to its next attempt on the configured doubling backoff. */
+const reschedule = (job: db.PendingVerification, error: string) =>
+  db.reschedulePendingVerification(
+    job.id,
+    error,
+    env.IDA_RETRY_BACKOFF_BASE_SECONDS,
+    env.IDA_RETRY_BACKOFF_MAX_SECONDS,
+  );
 
 /**
  * Replays the calls that could not be completed, merging them into the verdicts
@@ -147,11 +156,7 @@ export const processVerificationJob = async (
       verified = await replayPendingRequests(app, job);
 
       if (!verified && !finalAttempt) {
-        db.reschedulePendingVerification(
-          job.id,
-          "IDA still unavailable",
-          env.IDA_RETRY_BACKOFF_BASE_MINUTES,
-        );
+        reschedule(job, "IDA still unavailable");
 
         return { outcome: "retry", error: "IDA still unavailable" };
       }
@@ -187,11 +192,7 @@ export const processVerificationJob = async (
       return { outcome };
     }
 
-    db.reschedulePendingVerification(
-      job.id,
-      error ?? "IDA still unavailable",
-      env.IDA_RETRY_BACKOFF_BASE_MINUTES,
-    );
+    reschedule(job, error ?? "IDA still unavailable");
 
     app.log.warn(
       {
@@ -210,11 +211,7 @@ export const processVerificationJob = async (
         ? error.message
         : "Unknown error while retrying IDA verification";
 
-    db.reschedulePendingVerification(
-      job.id,
-      message,
-      env.IDA_RETRY_BACKOFF_BASE_MINUTES,
-    );
+    reschedule(job, message);
 
     // Kept rather than dropped: dropping strands the record in
     // validate:requested. /debug/ida-retry/:id/resolve is the escape hatch.
@@ -247,7 +244,7 @@ export const processPendingVerifications = async (
   app: FastifyInstance,
   limit = env.IDA_RETRY_BATCH_LIMIT,
 ) => {
-  const jobs = db.claimPendingVerifications(limit, env.IDA_RETRY_LEASE_MINUTES);
+  const jobs = db.claimPendingVerifications(limit, env.IDA_RETRY_LEASE_SECONDS);
 
   if (jobs.length === 0) {
     return { processed: 0, resolved: 0, requeued: 0, dropped: 0 };
@@ -293,11 +290,26 @@ export const startIdaRetryJob = (
 
   app.log.info({ intervalMs }, "Starting IDA verification retry scheduler");
 
+  /*
+   * A batch is processed sequentially and can outlive the interval, and
+   * `setInterval` does not wait for the previous pass. Without this the two
+   * would overlap and the lease alone would have to keep them apart.
+   */
+  let running = false;
+
   return setInterval(async () => {
+    if (running) {
+      app.log.debug("Previous IDA verification pass still running, skipping");
+      return;
+    }
+
+    running = true;
     try {
       await processPendingVerifications(app);
     } catch (error) {
       app.log.error("IDA verification retry job error:", error);
+    } finally {
+      running = false;
     }
   }, intervalMs);
 };

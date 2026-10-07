@@ -1187,8 +1187,7 @@ export const verifyNid = async ({
   nid,
   name,
   gender,
-  dob,
-  transactionId,
+  dob
 }: {
   nid: string;
   /** date of birth as YYYY/MM/DD */
@@ -1220,8 +1219,7 @@ export const verifyNid = async ({
       name,
       gender,
     },
-    consent: true,
-    transactionId,
+    consent: true
   });
 
   if (!response.ok) {

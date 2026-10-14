@@ -243,9 +243,11 @@ const getLocationAdministrativeArea = async (
       return undefined;
     }
 
-    // Find exact match by name in the results
+    const VILLAGE_ID_REGEX = /^[A-Za-z]{3}(?:-\d+){5}$/;
     const exactMatch = (bundle as any).entry.find(
-      (entry: any) => entry?.resource?.name === locationName
+      (entry: any) =>
+        entry?.resource?.name === locationName &&
+        VILLAGE_ID_REGEX.test(entry?.resource?.description ?? "")
     );
 
     if (exactMatch?.resource?.id) {

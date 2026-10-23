@@ -109,7 +109,7 @@ export const credentialIssuedHandler = async (
             ? { "child.verified": "verified" }
             : undefined,
         },
-        { token: confirmationToken, logger: request.log },
+        { token: confirmationToken },
       );
        await opencrvs.sendMosipNotification(
         { eventId, registrationNumber },
@@ -130,7 +130,7 @@ export const credentialIssuedHandler = async (
             requestedId
           }),
         },
-        { token: confirmationToken, logger: request.log  },
+        { token: confirmationToken},
       );
        await opencrvs.sendMosipNotification(
         { eventId, registrationNumber },

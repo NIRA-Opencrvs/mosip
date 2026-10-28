@@ -87,15 +87,9 @@ export const credentialIssuedHandler = async (
     // the registrar. The stored token remains as a fallback for deployments
     // that have not been issued client credentials yet.
 
-    console.log("isDirectAuthConfigured", opencrvs.isDirectAuthConfigured());
-    console.log("ID", env.OPENCRVS_CLIENT_ID);
-    console.log("Secrate", env.OPENCRVS_CLIENT_SECRET);
     const confirmationToken = opencrvs.isDirectAuthConfigured()
       ? await opencrvs.getConfirmationToken(eventId, actionId)
       : token;
-    if(opencrvs.isDirectAuthConfigured()){
-      console.log("ConfirmationToken", opencrvs.getConfirmationToken(eventId, actionId));
-    }
 
     // const actionInfo = await opencrvs.findEventActionType(eventId, { token });
 

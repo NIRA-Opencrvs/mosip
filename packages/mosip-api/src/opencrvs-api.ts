@@ -47,17 +47,24 @@ export const getConfirmationToken = async (
     client_secret: env.OPENCRVS_CLIENT_SECRET,
     grant_type: "client_credentials",
   });
+  console.log("Called");
+  
   const clientCredentialsResponse = await fetch(
     `${env.OPENCRVS_AUTH_URL}/token?${clientCredentialsParams}`,
     { method: "POST" },
   );
+  console.log("Called1");
+
   if (!clientCredentialsResponse.ok) {
     throw new OpenCRVSError(
       `client_credentials authentication failed: ${clientCredentialsResponse.status} ${await clientCredentialsResponse.text()}`,
     );
   }
+  console.log("Called2");
+
   const { access_token: systemToken } =
     (await clientCredentialsResponse.json()) as { access_token: string };
+  console.log("Called3");
 
   const tokenExchangeParams = new URLSearchParams({
     grant_type: "urn:opencrvs:oauth:grant-type:token-exchange",
@@ -67,17 +74,26 @@ export const getConfirmationToken = async (
     event_id: eventId,
     action_id: actionId,
   });
+  console.log("Called3");
+
   const tokenExchangeResponse = await fetch(
     `${env.OPENCRVS_AUTH_URL}/token?${tokenExchangeParams}`,
     { method: "POST" },
   );
+  console.log("Called4");
+
   if (!tokenExchangeResponse.ok) {
     throw new OpenCRVSError(
       `Token exchange failed: ${tokenExchangeResponse.status} ${await tokenExchangeResponse.text()}`,
     );
   }
+  console.log("Called5");
+
   const { access_token: confirmationToken } =
     (await tokenExchangeResponse.json()) as { access_token: string };
+
+  console.log("Called6");
+  
 
   return confirmationToken;
 };

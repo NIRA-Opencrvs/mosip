@@ -252,6 +252,21 @@ export const getAllTransactions = () => {
   }>;
 };
 
+export type TransactionReportRecord = {
+  id: string;
+  created_at: string;
+};
+
+export const getTransactionsForReport = () =>
+  database
+    .prepare(
+      `SELECT id, created_at
+       FROM transactions
+       WHERE id LIKE '%-10001%'
+       ORDER BY created_at`,
+    )
+    .all() as TransactionReportRecord[];
+
 export const updateTransactionToken = (id: string, newToken: string) => {
   const result = database
     .prepare("UPDATE transactions SET token = ? WHERE id = ?")

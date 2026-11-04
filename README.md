@@ -38,4 +38,17 @@ This project uses a **SQLite** database to store the record-specific tokens that
 
 The **environment variables** the server uses can be found at [`./packages/mosip-api/src/constants.ts`](./packages/mosip-api/src/constants.ts). Create a `.env` file in the root of the repository, if you want to override the local values.
 
+For the daily transaction report, map the deployment SMTP secret keys to these `mosip-api` environment variables:
+
+| Deployment secret key | `mosip-api` environment variable      |
+| --------------------- | ------------------------------------- |
+| `smtp-host`           | `SMTP_HOST`                           |
+| `smtp-port`           | `SMTP_PORT`                           |
+| `smtp-username`       | `SMTP_USERNAME`                       |
+| `smtp-secret`         | `SMTP_PASSWORD` (Google app password) |
+
+`smtp-authkey` is not used. Configure `TRANSACTION_REPORT_RECIPIENTS` separately as a comma-separated list. For Gmail, use `smtp.gmail.com` on port `587` with STARTTLS (`SMTP_SECURE=false`); `SMTP_USERNAME` should be the Gmail/Google Workspace account, and `SMTP_PASSWORD` should be its Google app password. The sender must be that account or an authorized sender alias.
+
+Set `MIDDLEWARE_BATCH_JOB=false` to disable scheduling the daily transaction report; it defaults to `true`.
+
 The **identities** for E-Signet and IDA Auth mocks are found at [`./docs/mock-identities.json`](./docs/mock-identities.json).

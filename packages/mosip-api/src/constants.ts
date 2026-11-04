@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url, num, bool } from "envalid";
+import { cleanEnv, str, port, url, num, bool, email } from "envalid";
 import { join } from "node:path";
 
 export const env = cleanEnv(process.env, {
@@ -195,6 +195,35 @@ export const env = cleanEnv(process.env, {
   WEB_SUB_BATCH_INTERVAL_MS: num({
     default: 1800000, // 30 minutes
     desc: "Interval in milliseconds between websub initalization batch job executions",
+  }),
+
+  // Daily transaction report
+  MIDDLEWARE_BATCH_JOB: bool({
+    default: true,
+    desc: "Enable the daily MOSIP transaction report batch job",
+  }),
+  TRANSACTION_REPORT_TIME: str({
+    default: "03:30",
+    desc: "UTC time (HH:mm) when the daily transaction report is sent",
+  }),
+  TRANSACTION_REPORT_RECIPIENTS: str({
+    default: "",
+    desc: "Comma-separated email addresses that receive the daily transaction report",
+  }),
+  SMTP_HOST: str({
+    default: "",
+    desc: "SMTP host used to send the daily transaction report",
+  }),
+  SMTP_PORT: port({ default: 465, desc: "SMTP port for the transaction report" }),
+  SMTP_USERNAME: str({ default: "", desc: "SMTP username, if required" }),
+  SMTP_PASSWORD: str({ default: "", desc: "SMTP password, if required" }),
+  SMTP_SECURE: bool({
+    default: true,
+    desc: "Use a secure SMTP connection for the transaction report",
+  }),
+  SENDER_EMAIL_ADDRESS: email({
+    default: "",
+    desc: "Sender address for the daily transaction report",
   }),
 
   // IDA verification retry

@@ -42,6 +42,7 @@ import {
   forceRetryRecordHandler,
 } from "./routes/batch-retry-debug";
 import { startIdaRetryJob } from "./ida-retry";
+import { startTransactionReportJob } from "./transaction-report";
 import {
   enqueueVerificationHandler,
   EnqueueVerificationSchema,
@@ -399,6 +400,13 @@ async function run() {
     `Swagger UI running at http://${env.HOST}:${env.PORT}/documentation ✅`,
   );
 
+  const transactionReportTimeout = env.MIDDLEWARE_BATCH_JOB
+    ? startTransactionReportJob(app)
+    : undefined;
+  if (!env.MIDDLEWARE_BATCH_JOB) {
+    app.log.info("Daily MOSIP transaction report batch job is disabled");
+  }
+
   await initializeWebSub(app);
 
   const intervalTime = env.WEB_SUB_BATCH_INTERVAL_MS
@@ -417,6 +425,7 @@ async function run() {
     clearInterval(retryJobInterval);
     if (idaRetryInterval) clearInterval(idaRetryInterval);
     clearInterval(webSubInterval);
+    if (transactionReportTimeout) clearTimeout(transactionReportTimeout);
     database.close();
     app.close();
   });

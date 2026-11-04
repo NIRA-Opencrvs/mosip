@@ -417,7 +417,7 @@ const pickUserInfo = async (
             },
             placeOfBirth : 'COMMUNITY'
           }
-        : childResidenceAdministrativeArea
+        : childResidenceAdministrativeArea && service !== "OUTSIDE_UGANDA"
         ? {
             address: {
               country: "UGA",

@@ -263,7 +263,7 @@ export const getTransactionsForReport = () =>
       `SELECT id, created_at
        FROM transactions
        WHERE id LIKE '%-10001%'
-       ORDER BY created_at`,
+       ORDER BY created_at DESC`,
     )
     .all() as TransactionReportRecord[];
 

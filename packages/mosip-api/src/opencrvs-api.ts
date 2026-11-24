@@ -171,29 +171,53 @@ export const rejectRegistration = async (
   },
   { token }: { token: string },
 ) => {
-  process.nextTick(async () => {
-    try {
-      const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
-      const client = createClient(url, `Bearer ${token}`);
+  const url = new URL("events", env.OPENCRVS_GATEWAY_URL).toString();
+  const client = createClient(url, `Bearer ${token}`);
 
-      await client.event.actions.register.reject.mutate({
-        transactionId: `mosip-interop-${crypto.randomUUID()}`,
-        eventId,
-        actionId,
-        keepAssignment: true
-      });
+  console.log(
+    `[mosip-reject] start eventId=${eventId} actionId=${actionId} reason="${failureReason}"`,
+  );
 
-      await client.event.actions.reject.request.mutate({
-        transactionId: `mosip-interop-${crypto.randomUUID()}`,
-        eventId,
-        actionId,
-        content: { reason: failureReason }
-      });
+  const event = await client.event.get.query(eventId as never);
+  const rejectedAction = event.actions.find(
+    (action: { id: string }) => action.id === actionId,
+  );
+  const createdAtLocation = rejectedAction?.createdAtLocation;
 
-    } catch (err) {
-      console.error("MOSIP rejection failed:", err);
-    }
+  if (!createdAtLocation) {
+    throw new OpenCRVSError(
+      `Unable to resolve 'createdAtLocation' for action ${actionId} of event ${eventId}: ` +
+        `action ${rejectedAction ? "found but has no location" : "not found"} ` +
+        `among ${event.actions.length} actions`,
+    );
+  }
+
+  console.log(
+    `[mosip-reject] resolved createdAtLocation=${createdAtLocation} from action ${actionId}`,
+  );
+
+  await client.event.actions.register.reject.mutate({
+    transactionId: `mosip-interop-${crypto.randomUUID()}`,
+    eventId,
+    actionId,
+    keepAssignment: false
   });
+
+  console.log(
+    `[mosip-reject] register.reject accepted, assignment released for eventId=${eventId}`,
+  );
+
+  // Records the rejection reason on the record's timeline.
+  await client.event.actions.reject.request.mutate({
+    transactionId: `mosip-interop-${crypto.randomUUID()}`,
+    eventId,
+    createdAtLocation,
+    content: { reason: failureReason }
+  });
+
+  console.log(
+    `[mosip-reject] reject.request accepted, reason recorded for eventId=${eventId}`,
+  );
 
   return true;
 };

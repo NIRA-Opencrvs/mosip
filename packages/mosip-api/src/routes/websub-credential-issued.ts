@@ -187,6 +187,11 @@ export const credentialErrorHandler = async (
       getTransaction(transactionId);
     const { eventId, actionId } = decode(token) as TokenPayload;
 
+    console.log(
+      `[mosip-error-callback] resolved transaction registrationId=${transactionId} ` +
+        `registrationNumber=${registrationNumber} eventId=${eventId} actionId=${actionId}`,
+    );
+
     // With client credentials configured, confirm with a freshly issued token:
     // it survives OpenCRVS redeployments that happened while the credential was
     // pending, and the confirmation is audited as this integration rather than
@@ -196,7 +201,19 @@ export const credentialErrorHandler = async (
       ? await opencrvs.getConfirmationToken(eventId, actionId)
       : token;
 
-    const failureReason = request.body.event.data.failureReason;
+
+    console.log(
+        "[mosip-error-callback] raw body:",
+        JSON.stringify(request.body),
+      );
+
+    const { failureReason, registrationType } = request.body.event.data;
+
+    console.log(
+      `[mosip-error-callback] failureReason="${failureReason}" ` +
+        `registrationType=${registrationType ?? "-"} ` +
+        `directAuth=${opencrvs.isDirectAuthConfigured()}`,
+    );
 
     await opencrvs.rejectRegistration(
       {
@@ -225,7 +242,7 @@ export const credentialErrorHandler = async (
       })
       .status(200);
   } catch (error) {
-    console.error("error: ", error);
+    console.error("[mosip-error-callback] rejection failed: ", error);
     return reply
       .send({
         publisher: request.body.publisher,

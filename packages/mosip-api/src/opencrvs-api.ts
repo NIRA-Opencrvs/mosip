@@ -159,6 +159,26 @@ export const confirmRegistration = (
   });
 };
 
+const rejectStep = async <T>(
+  step: string,
+  eventId: string,
+  run: () => Promise<T>,
+): Promise<T> => {
+  try {
+    return await run();
+  } catch (error) {
+    const trpc = error as { message?: string; data?: unknown };
+    console.log(
+      `[mosip-reject] FAILED at ${step} for eventId=${eventId}: ${trpc?.message ?? String(error)} ` +
+        `data=${JSON.stringify(trpc?.data ?? null)}`,
+    );
+    if (error instanceof Error && error.stack) {
+      console.log(`[mosip-reject] stack: ${error.stack}`);
+    }
+    throw error;
+  }
+};
+
 export const rejectRegistration = async (
   {
     eventId,
@@ -178,7 +198,9 @@ export const rejectRegistration = async (
     `[mosip-reject] start eventId=${eventId} actionId=${actionId} reason="${failureReason}"`,
   );
 
-  const event = await client.event.get.query(eventId as never);
+  const event = await rejectStep("event.get", eventId, () =>
+    client.event.get.query(eventId as never),
+  );
   const rejectedAction = event.actions.find(
     (action: { id: string }) => action.id === actionId,
   );
@@ -196,24 +218,28 @@ export const rejectRegistration = async (
     `[mosip-reject] resolved createdAtLocation=${createdAtLocation} from action ${actionId}`,
   );
 
-  await client.event.actions.register.reject.mutate({
-    transactionId: `mosip-interop-${crypto.randomUUID()}`,
-    eventId,
-    actionId,
-    keepAssignment: false
-  });
+  await rejectStep("register.reject", eventId, () =>
+    client.event.actions.register.reject.mutate({
+      transactionId: `mosip-interop-${crypto.randomUUID()}`,
+      eventId,
+      actionId,
+      keepAssignment: false
+    }),
+  );
 
   console.log(
     `[mosip-reject] register.reject accepted, assignment released for eventId=${eventId}`,
   );
 
   // Records the rejection reason on the record's timeline.
-  await client.event.actions.reject.request.mutate({
-    transactionId: `mosip-interop-${crypto.randomUUID()}`,
-    eventId,
-    createdAtLocation,
-    content: { reason: failureReason }
-  });
+  await rejectStep("reject.request", eventId, () =>
+    client.event.actions.reject.request.mutate({
+      transactionId: `mosip-interop-${crypto.randomUUID()}`,
+      eventId,
+      createdAtLocation,
+      content: { reason: failureReason }
+    }),
+  );
 
   console.log(
     `[mosip-reject] reject.request accepted, reason recorded for eventId=${eventId}`,

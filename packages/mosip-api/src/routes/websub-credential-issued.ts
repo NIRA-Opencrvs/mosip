@@ -242,7 +242,10 @@ export const credentialErrorHandler = async (
       })
       .status(200);
   } catch (error) {
-    console.error("[mosip-error-callback] rejection failed: ", error);
+    console.log(
+      "[mosip-error-callback] rejection failed, transaction kept for retry: ",
+      error instanceof Error ? (error.stack ?? error.message) : String(error),
+    );
     return reply
       .send({
         publisher: request.body.publisher,
